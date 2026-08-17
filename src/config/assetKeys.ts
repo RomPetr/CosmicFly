@@ -10,6 +10,7 @@ export type SceneKey = (typeof SceneKeys)[keyof typeof SceneKeys];
 
 export const TextureKeys = {
   PlayerShip: 'player-ship',
+  PulseBolt: 'pulse-bolt',
 } as const;
 
 export type TextureKey = (typeof TextureKeys)[keyof typeof TextureKeys];

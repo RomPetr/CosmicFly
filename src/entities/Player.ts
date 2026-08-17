@@ -5,6 +5,8 @@ import { starterShip } from '../data/ships';
 import type { InputManager } from '../managers/InputManager';
 import { gameState } from '../state/GameState';
 
+const MUZZLE_OFFSET_PX = 26;
+
 export class Player {
   private readonly sprite: Phaser.Physics.Arcade.Sprite;
   private readonly inputManager: InputManager;
@@ -45,5 +47,24 @@ export class Player {
     const aim = this.inputManager.getAimPosition();
     const angle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, aim.x, aim.y);
     this.sprite.setRotation(angle);
+  }
+
+  public get x(): number {
+    return this.sprite.x;
+  }
+
+  public get y(): number {
+    return this.sprite.y;
+  }
+
+  public get rotation(): number {
+    return this.sprite.rotation;
+  }
+
+  public getMuzzlePosition(out: Phaser.Math.Vector2): Phaser.Math.Vector2 {
+    return out.set(
+      this.sprite.x + Math.cos(this.sprite.rotation) * MUZZLE_OFFSET_PX,
+      this.sprite.y + Math.sin(this.sprite.rotation) * MUZZLE_OFFSET_PX,
+    );
   }
 }

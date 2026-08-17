@@ -9,11 +9,13 @@ export class InputManager {
   private readonly keyD: Phaser.Input.Keyboard.Key;
   private readonly moveVector: Phaser.Math.Vector2;
   private readonly aimPosition: Phaser.Math.Vector2;
+  private firing: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.moveVector = new Phaser.Math.Vector2();
     this.aimPosition = new Phaser.Math.Vector2(scene.scale.width / 2, scene.scale.height / 2);
+    this.firing = false;
 
     const keyboard = scene.input.keyboard;
     if (keyboard === null) {
@@ -30,6 +32,7 @@ export class InputManager {
   public update(): void {
     if (!this.scene.game.hasFocus) {
       this.moveVector.set(0, 0);
+      this.firing = false;
       return;
     }
 
@@ -60,6 +63,8 @@ export class InputManager {
     const pointer = this.scene.input.activePointer;
     pointer.updateWorldPoint(this.scene.cameras.main);
     this.aimPosition.set(pointer.worldX, pointer.worldY);
+
+    this.firing = pointer.leftButtonDown() || this.cursors.space.isDown;
   }
 
   public getMoveVector(): Phaser.Math.Vector2 {
@@ -68,5 +73,9 @@ export class InputManager {
 
   public getAimPosition(): Phaser.Math.Vector2 {
     return this.aimPosition;
+  }
+
+  public isFiring(): boolean {
+    return this.firing;
   }
 }

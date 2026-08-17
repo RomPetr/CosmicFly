@@ -3,11 +3,15 @@ import { SceneKeys } from '../config/assetKeys';
 import { gameState } from '../state/GameState';
 
 export class GameOverScene extends Phaser.Scene {
+  private returningToMenu = false;
+
   public constructor() {
     super({ key: SceneKeys.GameOver });
   }
 
   public create(): void {
+    this.returningToMenu = false;
+
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor(0x140c14);
@@ -39,9 +43,19 @@ export class GameOverScene extends Phaser.Scene {
 
     menu.on('pointerdown', this.returnToMenu, this);
     this.input.keyboard?.on('keydown-ENTER', this.returnToMenu, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
+  }
+
+  private onShutdown(): void {
+    this.input.keyboard?.off('keydown-ENTER', this.returnToMenu, this);
   }
 
   private returnToMenu(): void {
+    if (this.returningToMenu) {
+      return;
+    }
+
+    this.returningToMenu = true;
     this.scene.start(SceneKeys.Menu);
   }
 }

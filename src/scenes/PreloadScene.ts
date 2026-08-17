@@ -32,6 +32,7 @@ export class PreloadScene extends Phaser.Scene {
 
   public create(): void {
     this.createPlayerShipTexture();
+    this.createPulseBoltTexture();
     this.scene.start(SceneKeys.Menu);
   }
 
@@ -56,6 +57,30 @@ export class PreloadScene extends Phaser.Scene {
     graphics.fillCircle(24, 24, 2.5);
 
     graphics.generateTexture(TextureKeys.PlayerShip, size, size);
+    graphics.destroy();
+  }
+
+  private createPulseBoltTexture(): void {
+    if (this.textures.exists(TextureKeys.PulseBolt)) {
+      return;
+    }
+
+    const width = 16;
+    const height = 6;
+    const radius = height / 2;
+    const graphics = this.make.graphics({}, false);
+
+    graphics.fillStyle(0xffb04a, 1);
+    graphics.fillRect(radius, 0, width - height, height);
+    graphics.fillCircle(radius, radius, radius);
+    graphics.fillCircle(width - radius, radius, radius);
+
+    graphics.fillStyle(0xfff6e0, 1);
+    graphics.fillRect(radius + 1, 1, width - height - 2, height - 2);
+    graphics.fillCircle(radius + 1, radius, radius - 1);
+    graphics.fillCircle(width - radius - 1, radius, radius - 1);
+
+    graphics.generateTexture(TextureKeys.PulseBolt, width, height);
     graphics.destroy();
   }
 }

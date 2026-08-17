@@ -2,16 +2,21 @@ import Phaser from 'phaser';
 import { SceneKeys } from '../config/assetKeys';
 import { Player } from '../entities/Player';
 import { InputManager } from '../managers/InputManager';
+import { WeaponSystem } from '../systems/WeaponSystem';
 
 export class GameScene extends Phaser.Scene {
   private inputManager!: InputManager;
   private player!: Player;
+  private weaponSystem!: WeaponSystem;
+  private transitioning = false;
 
   public constructor() {
     super({ key: SceneKeys.Game });
   }
 
   public create(): void {
+    this.transitioning = false;
+
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor(0x1a2744);
@@ -19,6 +24,7 @@ export class GameScene extends Phaser.Scene {
 
     this.inputManager = new InputManager(this);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
+    this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager);
 
     this.add
       .text(12, 10, 'Flight in progress', {
@@ -44,16 +50,28 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
   }
 
-  public update(): void {
+  public update(_time: number, delta: number): void {
+    if (this.transitioning) {
+      return;
+    }
+
     this.inputManager.update();
     this.player.update();
+    this.weaponSystem.update(delta);
   }
 
   private onShutdown(): void {
     this.input.keyboard?.off('keydown-ESC', this.goToGameOver, this);
+    this.weaponSystem.stop();
   }
 
   private goToGameOver(): void {
+    if (this.transitioning) {
+      return;
+    }
+
+    this.transitioning = true;
+    this.weaponSystem.stop();
     this.scene.start(SceneKeys.GameOver);
   }
 }
