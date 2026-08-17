@@ -1,0 +1,17 @@
+---
+description: Коммиты и push CosmicFly только через субагента git-guardian
+alwaysApply: true
+---
+
+# Git только через git-guardian
+
+При любой просьбе закоммитить, сохранить в Git, сделать push/pull, создать GitHub-репозиторий или настроить Git LFS:
+
+1. Следуй `.cursor/agents/git-guardian.md`.
+2. Запускай субагента **git-guardian** (`Task` с `subagent_type: git-guardian`).
+3. Не выполняй `git commit`, `git push`, `git pull`, `gh repo create` сам (Командор, Штурман и основной агент).
+4. Коммит — только после явного `use` / подтверждения пользователя.
+5. Push — только после отдельного `yes`.
+6. Не меняй `git config`.
+
+Если субагент git-guardian недоступен в `Task`, остановись и сообщи об этом. Не подменяй его своими git-командами.
