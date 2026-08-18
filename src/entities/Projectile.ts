@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TextureKeys } from '../config/assetKeys';
+import { TextureKeys, type TextureKey } from '../config/assetKeys';
 
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   private elapsedMs: number;
@@ -29,9 +29,18 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     speed: number,
     lifetimeMs: number,
     damage: number,
+    textureKey: TextureKey,
+    scale: number,
+    angleOffset: number,
   ): void {
+    if (!this.scene.textures.exists(textureKey)) {
+      throw new Error(`Texture "${textureKey}" is not registered`);
+    }
+
+    this.setTexture(textureKey);
+    this.setScale(scale);
     this.enableBody(true, x, y, true, true);
-    this.setRotation(rotation);
+    this.setRotation(rotation + angleOffset);
     this.setDepth(2);
 
     const body = this.body;
@@ -41,6 +50,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     body.reset(x, y);
+    body.setSize(this.width, this.height, true);
     body.setAllowGravity(false);
     body.setCollideWorldBounds(false);
     this.scene.physics.velocityFromRotation(rotation, speed, body.velocity);

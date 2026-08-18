@@ -8,7 +8,7 @@ export class GameState {
   public constructor() {
     this.bestScore = 0;
     this.selectedSkinId = SkinIds.Ember;
-    this.autoFire = true;
+    this.autoFire = false;
   }
 }
 

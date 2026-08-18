@@ -4,7 +4,6 @@ import { weapons, type WeaponDef } from '../data/weapons';
 import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import type { InputManager } from '../managers/InputManager';
-import { gameState } from '../state/GameState';
 
 const PROJECTILE_POOL_SIZE = 40;
 
@@ -13,18 +12,22 @@ export class WeaponSystem {
   private readonly player: Player;
   private readonly inputManager: InputManager;
   private readonly projectiles: Phaser.Physics.Arcade.Group;
-  private readonly weapon: WeaponDef;
+  private readonly pulseWeapon: WeaponDef;
+  private readonly missileWeapon: WeaponDef;
   private readonly muzzlePosition: Phaser.Math.Vector2;
-  private cooldownRemainingMs: number;
+  private pulseCooldownRemainingMs: number;
+  private missileCooldownRemainingMs: number;
   private firingEnabled: boolean;
 
   public constructor(scene: Phaser.Scene, player: Player, inputManager: InputManager) {
     this.scene = scene;
     this.player = player;
     this.inputManager = inputManager;
-    this.weapon = weapons[starterShip.weaponId];
+    this.pulseWeapon = weapons[starterShip.pulseWeaponId];
+    this.missileWeapon = weapons[starterShip.missileWeaponId];
     this.muzzlePosition = new Phaser.Math.Vector2();
-    this.cooldownRemainingMs = 0;
+    this.pulseCooldownRemainingMs = 0;
+    this.missileCooldownRemainingMs = 0;
     this.firingEnabled = true;
 
     this.projectiles = scene.physics.add.group({
@@ -40,14 +43,18 @@ export class WeaponSystem {
       return;
     }
 
-    this.cooldownRemainingMs = Math.max(0, this.cooldownRemainingMs - delta);
+    this.pulseCooldownRemainingMs = Math.max(0, this.pulseCooldownRemainingMs - delta);
+    this.missileCooldownRemainingMs = Math.max(0, this.missileCooldownRemainingMs - delta);
 
-    if (!this.canFire()) {
-      return;
+    if (this.canFirePulse()) {
+      this.spawnVolley(this.pulseWeapon);
+      this.pulseCooldownRemainingMs = this.pulseWeapon.intervalMs;
     }
 
-    this.spawnVolley();
-    this.cooldownRemainingMs = this.weapon.intervalMs;
+    if (this.canFireMissile()) {
+      this.spawnVolley(this.missileWeapon);
+      this.missileCooldownRemainingMs = this.missileWeapon.intervalMs;
+    }
   }
 
   public stop(): void {
@@ -64,24 +71,28 @@ export class WeaponSystem {
     }
   }
 
-  private canFire(): boolean {
-    if (!this.firingEnabled || this.cooldownRemainingMs > 0) {
-      return false;
-    }
-
-    if (!this.scene.game.hasFocus) {
-      return false;
-    }
-
-    return gameState.autoFire || this.inputManager.isFiring();
+  private canFirePulse(): boolean {
+    return (
+      this.firingEnabled &&
+      this.pulseCooldownRemainingMs <= 0 &&
+      this.inputManager.isFiringPulse()
+    );
   }
 
-  private spawnVolley(): void {
+  private canFireMissile(): boolean {
+    return (
+      this.firingEnabled &&
+      this.missileCooldownRemainingMs <= 0 &&
+      this.inputManager.isFiringMissile()
+    );
+  }
+
+  private spawnVolley(weapon: WeaponDef): void {
     const aim = this.inputManager.getAimPosition();
     const muzzle = this.player.getMuzzlePosition(this.muzzlePosition);
     const rotation = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
 
-    for (let index = 0; index < this.weapon.projectileCount; index += 1) {
+    for (let index = 0; index < weapon.projectileCount; index += 1) {
       const bolt = this.projectiles.get(muzzle.x, muzzle.y);
       if (!(bolt instanceof Projectile)) {
         return;
@@ -91,9 +102,12 @@ export class WeaponSystem {
         muzzle.x,
         muzzle.y,
         rotation,
-        this.weapon.projectileSpeed,
-        this.weapon.lifetimeMs,
-        this.weapon.damage,
+        weapon.projectileSpeed,
+        weapon.lifetimeMs,
+        weapon.damage,
+        weapon.textureKey,
+        weapon.scale,
+        weapon.angleOffset,
       );
     }
   }

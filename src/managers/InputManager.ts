@@ -9,13 +9,15 @@ export class InputManager {
   private readonly keyD: Phaser.Input.Keyboard.Key;
   private readonly moveVector: Phaser.Math.Vector2;
   private readonly aimPosition: Phaser.Math.Vector2;
-  private firing: boolean;
+  private pulseFiring: boolean;
+  private missileFiring: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.moveVector = new Phaser.Math.Vector2();
     this.aimPosition = new Phaser.Math.Vector2(scene.scale.width / 2, scene.scale.height / 2);
-    this.firing = false;
+    this.pulseFiring = false;
+    this.missileFiring = false;
 
     const keyboard = scene.input.keyboard;
     if (keyboard === null) {
@@ -30,9 +32,10 @@ export class InputManager {
   }
 
   public update(): void {
-    if (!this.scene.game.hasFocus) {
+    if (!this.isWindowFocused()) {
       this.moveVector.set(0, 0);
-      this.firing = false;
+      this.pulseFiring = false;
+      this.missileFiring = false;
       return;
     }
 
@@ -64,7 +67,8 @@ export class InputManager {
     pointer.updateWorldPoint(this.scene.cameras.main);
     this.aimPosition.set(pointer.worldX, pointer.worldY);
 
-    this.firing = pointer.leftButtonDown() || this.cursors.space.isDown;
+    this.pulseFiring = pointer.leftButtonDown();
+    this.missileFiring = this.cursors.space.isDown;
   }
 
   public getMoveVector(): Phaser.Math.Vector2 {
@@ -75,7 +79,15 @@ export class InputManager {
     return this.aimPosition;
   }
 
-  public isFiring(): boolean {
-    return this.firing;
+  public isFiringPulse(): boolean {
+    return this.pulseFiring;
+  }
+
+  public isFiringMissile(): boolean {
+    return this.missileFiring;
+  }
+
+  private isWindowFocused(): boolean {
+    return document.visibilityState !== 'hidden';
   }
 }

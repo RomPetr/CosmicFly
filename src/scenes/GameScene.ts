@@ -22,6 +22,9 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(0x1a2744);
     this.physics.world.setBounds(0, 0, width, height);
 
+    this.game.canvas.setAttribute('tabindex', '0');
+    this.game.canvas.focus();
+
     this.inputManager = new InputManager(this);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager);
