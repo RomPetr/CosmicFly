@@ -38,6 +38,10 @@ export class WeaponSystem {
     });
   }
 
+  public getProjectiles(): Phaser.Physics.Arcade.Group {
+    return this.projectiles;
+  }
+
   public update(delta: number): void {
     if (!this.firingEnabled) {
       return;
