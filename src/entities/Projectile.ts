@@ -82,6 +82,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   }
 
   public deactivate(): void {
+    if (!this.scene.sys.isActive()) {
+      return;
+    }
+
     const body = this.body;
     if (body instanceof Phaser.Physics.Arcade.Body) {
       body.stop();

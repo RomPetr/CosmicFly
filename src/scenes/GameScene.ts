@@ -88,9 +88,7 @@ export class GameScene extends Phaser.Scene {
 
   private onShutdown(): void {
     this.input.keyboard?.off('keydown-ESC', this.goToGameOver, this);
-    this.weaponSystem.stop();
-    this.spawnSystem.stop();
-    this.debrisBurst.stop();
+    this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
   }
 
   private goToGameOver(): void {
@@ -99,10 +97,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.transitioning = true;
+    this.input.enabled = false;
+    this.physics.world.pause();
+    this.collisionSystem.stop();
+    this.sys.game.events.once(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
+  }
+
+  private onPostRenderLeave(): void {
+    if (!this.sys.isActive() || this.physics.world === undefined) {
+      return;
+    }
+
+    this.physics.world.resume();
     this.weaponSystem.stop();
     this.spawnSystem.stop();
     this.debrisBurst.stop();
-    this.collisionSystem.stop();
     this.scene.start(SceneKeys.GameOver);
   }
 }
