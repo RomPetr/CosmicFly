@@ -3,6 +3,7 @@ import { starterShip } from '../data/ships';
 import { weapons, type WeaponDef } from '../data/weapons';
 import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
+import type { AudioManager } from '../managers/AudioManager';
 import type { InputManager } from '../managers/InputManager';
 
 const PROJECTILE_POOL_SIZE = 40;
@@ -11,6 +12,7 @@ export class WeaponSystem {
   private readonly scene: Phaser.Scene;
   private readonly player: Player;
   private readonly inputManager: InputManager;
+  private readonly audioManager: AudioManager;
   private readonly projectiles: Phaser.Physics.Arcade.Group;
   private readonly pulseWeapon: WeaponDef;
   private readonly missileWeapon: WeaponDef;
@@ -19,10 +21,16 @@ export class WeaponSystem {
   private missileCooldownRemainingMs: number;
   private firingEnabled: boolean;
 
-  public constructor(scene: Phaser.Scene, player: Player, inputManager: InputManager) {
+  public constructor(
+    scene: Phaser.Scene,
+    player: Player,
+    inputManager: InputManager,
+    audioManager: AudioManager,
+  ) {
     this.scene = scene;
     this.player = player;
     this.inputManager = inputManager;
+    this.audioManager = audioManager;
     this.pulseWeapon = weapons[starterShip.pulseWeaponId];
     this.missileWeapon = weapons[starterShip.missileWeaponId];
     this.muzzlePosition = new Phaser.Math.Vector2();
@@ -95,11 +103,12 @@ export class WeaponSystem {
     const aim = this.inputManager.getAimPosition();
     const muzzle = this.player.getMuzzlePosition(this.muzzlePosition);
     const rotation = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
+    let spawned = false;
 
     for (let index = 0; index < weapon.projectileCount; index += 1) {
       const bolt = this.projectiles.get(muzzle.x, muzzle.y);
       if (!(bolt instanceof Projectile)) {
-        return;
+        break;
       }
 
       bolt.fire(
@@ -113,6 +122,11 @@ export class WeaponSystem {
         weapon.scale,
         weapon.angleOffset,
       );
+      spawned = true;
+    }
+
+    if (spawned) {
+      this.audioManager.playSfx(weapon.soundKey);
     }
   }
 }

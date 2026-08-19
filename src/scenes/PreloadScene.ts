@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys, TextureKeys, TexturePaths } from '../config/assetKeys';
+import { SceneKeys, SoundKeys, SoundPaths, TextureKeys, TexturePaths } from '../config/assetKeys';
 
 const PROGRESS_BAR_WIDTH = 320;
 const PROGRESS_BAR_HEIGHT = 18;
@@ -13,6 +13,12 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.PlayerShip, TexturePaths[TextureKeys.PlayerShip]);
     this.load.image(TextureKeys.StingDart, TexturePaths[TextureKeys.StingDart]);
     this.load.image(TextureKeys.FlareMissile, TexturePaths[TextureKeys.FlareMissile]);
+
+    for (const key of Object.values(SoundKeys)) {
+      this.load.audio(key, SoundPaths[key]);
+    }
+
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, this.handleLoadError, this);
 
     const { width, height } = this.scale;
     const barX = width / 2 - PROGRESS_BAR_WIDTH / 2;
@@ -35,8 +41,17 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   public create(): void {
+    this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, this.handleLoadError, this);
     this.createPulseBoltTexture();
     this.scene.start(SceneKeys.Menu);
+  }
+
+  private handleLoadError(file: Phaser.Loader.File): void {
+    if (file.type !== 'audio') {
+      return;
+    }
+
+    console.warn(`Failed to load audio "${file.key}" from ${String(file.src)}`);
   }
 
   private createPulseBoltTexture(): void {

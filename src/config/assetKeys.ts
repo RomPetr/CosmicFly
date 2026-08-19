@@ -23,6 +23,26 @@ export const TexturePaths = {
   [TextureKeys.FlareMissile]: '/assets/projectiles/missiles/spaceMissiles_006.png',
 } as const;
 
+export const SoundKeys = {
+  BlasterShoot: 'blaster-shoot',
+  RocketLaunch: 'rocket-launch',
+  EnemyBlaster: 'enemy-blaster',
+  EnemyMissile: 'enemy-missile',
+  EngineIdle: 'engine-idle',
+  EngineThrust: 'engine-thrust',
+} as const;
+
+export type SoundKey = (typeof SoundKeys)[keyof typeof SoundKeys];
+
+export const SoundPaths = {
+  [SoundKeys.BlasterShoot]: '/assets/audio/player/blaster_shoot.ogg',
+  [SoundKeys.RocketLaunch]: '/assets/audio/player/rocket_launch.ogg',
+  [SoundKeys.EnemyBlaster]: '/assets/audio/enemy/enemy_blaster.ogg',
+  [SoundKeys.EnemyMissile]: '/assets/audio/enemy/enemy_missile.ogg',
+  [SoundKeys.EngineIdle]: '/assets/audio/engine/engine_idle.ogg',
+  [SoundKeys.EngineThrust]: '/assets/audio/engine/engine_thrust.ogg',
+} as const;
+
 export const SkinIds = {
   Ember: 'skin-ember',
 } as const;

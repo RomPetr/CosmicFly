@@ -41,6 +41,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private startGame(): void {
+    this.sound.unlock();
     this.scene.start(SceneKeys.Game);
   }
 }

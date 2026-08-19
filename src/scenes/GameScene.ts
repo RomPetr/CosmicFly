@@ -3,12 +3,14 @@ import { SceneKeys } from '../config/assetKeys';
 import { Enemy } from '../entities/Enemy';
 import { Player } from '../entities/Player';
 import { DebrisBurst } from '../effects/DebrisBurst';
+import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { WeaponSystem } from '../systems/WeaponSystem';
 
 export class GameScene extends Phaser.Scene {
+  private audioManager!: AudioManager;
   private inputManager!: InputManager;
   private player!: Player;
   private weaponSystem!: WeaponSystem;
@@ -32,9 +34,10 @@ export class GameScene extends Phaser.Scene {
     this.game.canvas.setAttribute('tabindex', '0');
     this.game.canvas.focus();
 
+    this.audioManager = new AudioManager(this);
     this.inputManager = new InputManager(this);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
-    this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager);
+    this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
     this.debrisBurst = new DebrisBurst(this);
     this.collisionSystem = new CollisionSystem(
@@ -67,6 +70,7 @@ export class GameScene extends Phaser.Scene {
     endFlight.on('pointerdown', this.goToGameOver, this);
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
+    this.audioManager.startFlight();
   }
 
   public update(_time: number, delta: number): void {
@@ -75,6 +79,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.inputManager.update();
+    this.audioManager.updateThrust(this.inputManager.getMoveVector().lengthSq() > 0);
     this.player.update();
     this.weaponSystem.update(delta);
     this.spawnSystem.update(delta);
@@ -87,6 +92,7 @@ export class GameScene extends Phaser.Scene {
   };
 
   private onShutdown(): void {
+    this.audioManager.stopFlight();
     this.input.keyboard?.off('keydown-ESC', this.goToGameOver, this);
     this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
   }
@@ -108,6 +114,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.audioManager.stopFlight();
     this.physics.world.resume();
     this.weaponSystem.stop();
     this.spawnSystem.stop();

@@ -1,4 +1,4 @@
-import { TextureKeys, type TextureKey } from '../config/assetKeys';
+import { SoundKeys, TextureKeys, type SoundKey, type TextureKey } from '../config/assetKeys';
 
 export const WeaponIds = {
   PulseBeam: 'pulse-beam',
@@ -10,6 +10,7 @@ export type WeaponId = (typeof WeaponIds)[keyof typeof WeaponIds];
 export type WeaponDef = {
   readonly id: WeaponId;
   readonly textureKey: TextureKey;
+  readonly soundKey: SoundKey;
   readonly intervalMs: number;
   readonly projectileSpeed: number;
   readonly damage: number;
@@ -22,6 +23,7 @@ export type WeaponDef = {
 export const pulseBeamWeapon: WeaponDef = {
   id: WeaponIds.PulseBeam,
   textureKey: TextureKeys.PulseBolt,
+  soundKey: SoundKeys.BlasterShoot,
   intervalMs: 140,
   projectileSpeed: 560,
   damage: 1,
@@ -34,6 +36,7 @@ export const pulseBeamWeapon: WeaponDef = {
 export const flareMissilesWeapon: WeaponDef = {
   id: WeaponIds.FlareMissiles,
   textureKey: TextureKeys.FlareMissile,
+  soundKey: SoundKeys.RocketLaunch,
   intervalMs: 450,
   projectileSpeed: 380,
   damage: 3,
