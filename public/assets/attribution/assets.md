@@ -30,7 +30,9 @@ Kenney Vleugels (Kenney.nl)
 Used files:
 - `public/assets/ships/player/spaceShips_001.png` — player ship;
 - `public/assets/enemies/sting-dart/spaceShips_008.png` — sting-dart (preloaded, not spawned);
-- `public/assets/projectiles/missiles/spaceMissiles_006.png` — flare missiles.
+- `public/assets/projectiles/missiles/spaceMissiles_006.png` — flare missiles;
+- `public/assets/meteors/ash-chunk/spaceMeteors_001.png` — ash chunk (larger silhouette);
+- `public/assets/meteors/ash-chunk/spaceMeteors_003.png` — ash chunk (taller silhouette).
 
 ## Kenney Sci-fi Sounds
 

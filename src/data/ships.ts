@@ -11,6 +11,9 @@ export const starterShip = {
   maxSpeed: 280,
   drag: 250,
   colliderRadius: 16,
+  maxHull: 3,
+  maxShield: 2,
+  hitIFramesMs: 450,
   pulseWeaponId: WeaponIds.PulseBeam,
   missileWeaponId: WeaponIds.FlareMissiles,
 } as const;

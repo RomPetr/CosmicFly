@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys, SoundKeys, SoundPaths, TextureKeys, TexturePaths } from '../config/assetKeys';
+import { SceneKeys, SoundKeys, SoundPaths, TextureKeys, TexturePaths, type TextureKey } from '../config/assetKeys';
 
 const PROGRESS_BAR_WIDTH = 320;
 const PROGRESS_BAR_HEIGHT = 18;
@@ -13,6 +13,8 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.PlayerShip, TexturePaths[TextureKeys.PlayerShip]);
     this.load.image(TextureKeys.StingDart, TexturePaths[TextureKeys.StingDart]);
     this.load.image(TextureKeys.FlareMissile, TexturePaths[TextureKeys.FlareMissile]);
+    this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
+    this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
 
     for (const key of Object.values(SoundKeys)) {
       this.load.audio(key, SoundPaths[key]);
@@ -42,7 +44,16 @@ export class PreloadScene extends Phaser.Scene {
 
   public create(): void {
     this.load.off(Phaser.Loader.Events.FILE_LOAD_ERROR, this.handleLoadError, this);
+
+    if (
+      !this.textures.exists(TextureKeys.AshChunkA) ||
+      !this.textures.exists(TextureKeys.AshChunkB)
+    ) {
+      throw new Error('Ash Chunk meteor textures are not registered');
+    }
+
     this.createPulseBoltTexture();
+    this.createStarfieldTextures();
     this.scene.start(SceneKeys.Menu);
   }
 
@@ -75,6 +86,38 @@ export class PreloadScene extends Phaser.Scene {
     graphics.fillCircle(width - radius - 1, radius, radius - 1);
 
     graphics.generateTexture(TextureKeys.PulseBolt, width, height);
+    graphics.destroy();
+  }
+
+  private createStarfieldTextures(): void {
+    this.createStarfieldTexture(TextureKeys.StarfieldFar, 256, 52, 1.1, 0xc8d4ea, 0.5);
+    this.createStarfieldTexture(TextureKeys.StarfieldNear, 256, 20, 1.7, 0xf4f7fb, 0.92);
+  }
+
+  private createStarfieldTexture(
+    key: TextureKey,
+    size: number,
+    starCount: number,
+    radius: number,
+    color: number,
+    alpha: number,
+  ): void {
+    if (this.textures.exists(key)) {
+      return;
+    }
+
+    const graphics = this.make.graphics({}, false);
+
+    for (let index = 0; index < starCount; index += 1) {
+      const x = Phaser.Math.Between(2, size - 3);
+      const y = Phaser.Math.Between(2, size - 3);
+      const starRadius = Phaser.Math.FloatBetween(radius * 0.45, radius);
+      const starAlpha = Phaser.Math.FloatBetween(alpha * 0.4, alpha);
+      graphics.fillStyle(color, starAlpha);
+      graphics.fillCircle(x, y, starRadius);
+    }
+
+    graphics.generateTexture(key, size, size);
     graphics.destroy();
   }
 }
