@@ -1,8 +1,10 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
 import type { MeteorDef } from '../data/meteors';
+import { MeteorSurfaceLighting } from '../effects/MeteorSurfaceLighting';
 
 export class Meteor extends Phaser.Physics.Arcade.Sprite {
+  private readonly surfaceLighting: MeteorSurfaceLighting;
   private hull: number;
   private contactDamage: number;
   private ownSpeed: number;
@@ -14,6 +16,7 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
       throw new Error(`Texture "${TextureKeys.AshChunkA}" is not registered`);
     }
 
+    this.surfaceLighting = new MeteorSurfaceLighting(scene);
     this.hull = 0;
     this.contactDamage = 0;
     this.ownSpeed = 0;
@@ -58,6 +61,7 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     body.setBounce(0);
     body.setVelocity(0, this.ownSpeed);
     body.setAngularVelocity(angularVelocity);
+    this.surfaceLighting.activate(this.x, this.y, this.displayWidth, this.displayHeight, this.depth);
   }
 
   public syncFallSpeed(scrollSpeed: number): void {
@@ -69,6 +73,14 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     if (body instanceof Phaser.Physics.Arcade.Body) {
       body.setVelocityY(this.ownSpeed + scrollSpeed);
     }
+  }
+
+  public updateVisual(delta: number): void {
+    if (!this.active) {
+      return;
+    }
+
+    this.surfaceLighting.update(delta, this.x, this.y);
   }
 
   public takeDamage(amount: number): boolean {
@@ -94,6 +106,7 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
       body.stop();
     }
 
+    this.surfaceLighting.deactivate();
     this.disableBody(true, true);
   }
 

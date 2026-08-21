@@ -49,6 +49,7 @@ export class MeteorSystem {
       }
 
       child.syncFallSpeed(scrollSpeed);
+      child.updateVisual(delta);
       if (child.y > recycleY) {
         child.deactivate();
       }
