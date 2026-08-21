@@ -16,6 +16,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private maxHull: number;
   private moveSpeed: number;
   private noseOffset: number;
+  private preferredDistance: number;
+  private retreatDistance: number;
+  private approachDistance: number;
+  private orbitStrength: number;
+  private weaveStrength: number;
+  private steeringLerpPerSec: number;
+  private fireIntervalMinMs: number;
+  private fireIntervalMaxMs: number;
+  private fireCooldownMs: number;
+  private orbitDirection: number;
+  private orbitSwitchRemainingMs: number;
+  private weavePhase: number;
+  private weaveFrequency: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.StingDart);
@@ -28,6 +41,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.maxHull = 0;
     this.moveSpeed = 0;
     this.noseOffset = 0;
+    this.preferredDistance = 0;
+    this.retreatDistance = 0;
+    this.approachDistance = 0;
+    this.orbitStrength = 0;
+    this.weaveStrength = 0;
+    this.steeringLerpPerSec = 0;
+    this.fireIntervalMinMs = 0;
+    this.fireIntervalMaxMs = 0;
+    this.fireCooldownMs = 0;
+    this.orbitDirection = 1;
+    this.orbitSwitchRemainingMs = 0;
+    this.weavePhase = 0;
+    this.weaveFrequency = 0;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -65,6 +91,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.maxHull = def.maxHull;
     this.moveSpeed = def.speed;
     this.noseOffset = def.angleOffset;
+    this.preferredDistance = def.preferredDistance;
+    this.retreatDistance = def.retreatDistance;
+    this.approachDistance = def.approachDistance;
+    this.orbitStrength = def.orbitStrength;
+    this.weaveStrength = def.weaveStrength;
+    this.steeringLerpPerSec = def.steeringLerpPerSec;
+    this.fireIntervalMinMs = def.fireIntervalMinMs;
+    this.fireIntervalMaxMs = def.fireIntervalMaxMs;
+    this.fireCooldownMs = this.randomFireInterval();
+    this.orbitDirection = Phaser.Math.Between(0, 1) === 0 ? -1 : 1;
+    this.orbitSwitchRemainingMs = Phaser.Math.FloatBetween(1800, 4200);
+    this.weavePhase = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    this.weaveFrequency = Phaser.Math.FloatBetween(
+      def.weaveFrequencyMin,
+      def.weaveFrequencyMax,
+    );
 
     this.setTexture(def.textureKey);
     this.setScale(def.scale);
@@ -86,25 +128,85 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.setAllowGravity(false);
     body.setCollideWorldBounds(true);
     body.setBounce(0);
+    body.setVelocity(0, 0);
 
     this.syncHealthBar();
     this.barBackground.setVisible(true);
     this.barFill.setVisible(true);
   }
 
-  public updateChase(targetX: number, targetY: number): void {
+  public updateBehavior(targetX: number, targetY: number, delta: number): void {
     if (!this.active) {
       return;
     }
 
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, targetX, targetY);
     const body = this.body;
-    if (body instanceof Phaser.Physics.Arcade.Body) {
-      this.scene.physics.velocityFromRotation(angle, this.moveSpeed, body.velocity);
+    if (!(body instanceof Phaser.Physics.Arcade.Body)) {
+      return;
     }
 
-    this.setRotation(angle + this.noseOffset);
+    const deltaSeconds = delta / 1000;
+    const offsetX = targetX - this.x;
+    const offsetY = targetY - this.y;
+    const distance = Math.hypot(offsetX, offsetY);
+    const inverseDistance = distance > 0.001 ? 1 / distance : 0;
+    const towardX = offsetX * inverseDistance;
+    const towardY = offsetY * inverseDistance;
+    const perpendicularX = -towardY * this.orbitDirection;
+    const perpendicularY = towardX * this.orbitDirection;
+
+    this.orbitSwitchRemainingMs -= delta;
+    if (this.orbitSwitchRemainingMs <= 0) {
+      this.orbitDirection *= -1;
+      this.orbitSwitchRemainingMs = Phaser.Math.FloatBetween(1800, 4200);
+    }
+
+    this.weavePhase += this.weaveFrequency * deltaSeconds;
+    const weave = Math.sin(this.weavePhase) * this.weaveStrength;
+    let approachWeight: number;
+    let orbitWeight = this.orbitStrength;
+
+    if (distance > this.approachDistance) {
+      approachWeight = 1;
+      orbitWeight *= 0.45;
+    } else if (distance < this.retreatDistance) {
+      approachWeight = -1;
+    } else {
+      const preferredOffset = (distance - this.preferredDistance) /
+        Math.max(1, this.approachDistance - this.retreatDistance);
+      approachWeight = Phaser.Math.Clamp(preferredOffset * 2.5, -0.45, 0.45);
+    }
+
+    const desiredX = towardX * approachWeight + perpendicularX * (orbitWeight + weave);
+    const desiredY = towardY * approachWeight + perpendicularY * (orbitWeight + weave);
+    const desiredLength = Math.hypot(desiredX, desiredY);
+    const desiredScale = desiredLength > 0.001 ? this.moveSpeed / desiredLength : 0;
+    const targetVelocityX = desiredX * desiredScale;
+    const targetVelocityY = desiredY * desiredScale;
+    const steeringAlpha = 1 - Math.exp(-this.steeringLerpPerSec * deltaSeconds);
+
+    body.velocity.x += (targetVelocityX - body.velocity.x) * steeringAlpha;
+    body.velocity.y += (targetVelocityY - body.velocity.y) * steeringAlpha;
+
+    if (body.velocity.lengthSq() > 1) {
+      this.setRotation(Math.atan2(body.velocity.y, body.velocity.x) + this.noseOffset);
+    }
+
     this.syncHealthBar();
+  }
+
+  public consumeFireRequest(delta: number): boolean {
+    if (!this.active) {
+      return false;
+    }
+
+    this.fireCooldownMs -= delta;
+    if (this.fireCooldownMs > 0) {
+      return false;
+    }
+
+    this.fireCooldownMs = this.randomFireInterval();
+    return true;
   }
 
   public takeDamage(amount: number): boolean {
@@ -147,5 +249,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.barFill.setFillStyle(
       this.hull <= 1 ? HEALTH_BAR_FILL_WOUNDED : HEALTH_BAR_FILL_HEALTHY,
     );
+  }
+
+  private randomFireInterval(): number {
+    return Phaser.Math.FloatBetween(this.fireIntervalMinMs, this.fireIntervalMaxMs);
   }
 }

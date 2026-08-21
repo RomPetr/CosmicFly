@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../config/assetKeys';
+import { SceneKeys, SoundKeys } from '../config/assetKeys';
 import { starterShip } from '../data/ships';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
-import { Player } from '../entities/Player';
+import { Player, type PlayerHitResult } from '../entities/Player';
 import { DebrisBurst } from '../effects/DebrisBurst';
 import { MeteorDebrisBurst } from '../effects/MeteorDebrisBurst';
 import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
 import { CollisionSystem } from '../systems/CollisionSystem';
+import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
 import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { StarfieldSystem } from '../systems/StarfieldSystem';
@@ -20,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private weaponSystem!: WeaponSystem;
   private spawnSystem!: SpawnSystem;
+  private enemyWeaponSystem!: EnemyWeaponSystem;
   private starfieldSystem!: StarfieldSystem;
   private meteorSystem!: MeteorSystem;
   private collisionSystem!: CollisionSystem;
@@ -49,18 +51,25 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
+    this.enemyWeaponSystem = new EnemyWeaponSystem(
+      this,
+      this.spawnSystem.getEnemies(),
+      this.player,
+      this.audioManager,
+    );
     this.meteorSystem = new MeteorSystem(this, this.player);
     this.debrisBurst = new DebrisBurst(this);
     this.meteorDebrisBurst = new MeteorDebrisBurst(this);
     this.collisionSystem = new CollisionSystem(
       this,
       this.weaponSystem.getProjectiles(),
+      this.enemyWeaponSystem.getProjectiles(),
       this.spawnSystem.getEnemies(),
       this.meteorSystem.getMeteors(),
       this.player,
       this.handleEnemyKilled,
       this.handleMeteorHit,
-      this.handlePlayerKilled,
+      this.handlePlayerHit,
     );
     this.spawnSystem.start();
     this.meteorSystem.start();
@@ -116,6 +125,7 @@ export class GameScene extends Phaser.Scene {
     this.meteorSystem.update(delta, this.starfieldSystem.getScrollSpeed());
     this.weaponSystem.update(delta);
     this.spawnSystem.update(delta);
+    this.enemyWeaponSystem.update(delta);
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
     this.syncHud();
@@ -135,8 +145,11 @@ export class GameScene extends Phaser.Scene {
     this.meteorDebrisBurst.spawnHit(meteor.x, meteor.y);
   };
 
-  private handlePlayerKilled = (): void => {
-    this.goToGameOver();
+  private handlePlayerHit = (result: PlayerHitResult): void => {
+    this.audioManager.playSfx(SoundKeys.PlayerHit);
+    if (result.killed) {
+      this.goToGameOver();
+    }
   };
 
   private syncHud(): void {
@@ -173,6 +186,7 @@ export class GameScene extends Phaser.Scene {
     this.audioManager.stopFlight();
     this.physics.world.resume();
     this.weaponSystem.stop();
+    this.enemyWeaponSystem.stop();
     this.spawnSystem.stop();
     this.meteorSystem.stop();
     this.starfieldSystem.stop();

@@ -52,7 +52,7 @@ export class SpawnSystem {
 
     for (const child of this.enemies.getChildren()) {
       if (child instanceof Enemy && child.active) {
-        child.updateChase(this.player.x, this.player.y);
+        child.updateBehavior(this.player.x, this.player.y, delta);
       }
     }
 

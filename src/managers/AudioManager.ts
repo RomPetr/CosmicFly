@@ -3,6 +3,8 @@ import { SoundKeys, type SoundKey } from '../config/assetKeys';
 
 const VOLUME_PULSE = 0.4;
 const VOLUME_MISSILE = 0.5;
+const VOLUME_ENEMY_BLASTER = 0.3;
+const VOLUME_PLAYER_HIT = 0.5;
 const VOLUME_ENGINE_IDLE = 0.16;
 const VOLUME_ENGINE_THRUST = 0.38;
 
@@ -105,6 +107,14 @@ export class AudioManager {
   private getSfxVolume(key: SoundKey): number {
     if (key === SoundKeys.RocketLaunch) {
       return VOLUME_MISSILE;
+    }
+
+    if (key === SoundKeys.EnemyBlaster) {
+      return VOLUME_ENEMY_BLASTER;
+    }
+
+    if (key === SoundKeys.PlayerHit) {
+      return VOLUME_PLAYER_HIT;
     }
 
     return VOLUME_PULSE;

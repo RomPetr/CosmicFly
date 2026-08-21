@@ -5,6 +5,13 @@ import type { InputManager } from '../managers/InputManager';
 
 const HIT_FLASH_MS = 90;
 const HIT_FLASH_ALPHA = 0.4;
+const HIT_FEEDBACK_MS = 500;
+const HIT_ROTATION_AMPLITUDE = 0.07;
+
+export type PlayerHitResult = {
+  readonly applied: boolean;
+  readonly killed: boolean;
+};
 
 export class Player {
   private readonly sprite: Phaser.Physics.Arcade.Sprite;
@@ -14,6 +21,8 @@ export class Player {
   private shield: number;
   private invulnerableUntilMs: number;
   private flashUntilMs: number;
+  private hitFeedbackStartedMs: number;
+  private hitFeedbackUntilMs: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number, inputManager: InputManager) {
     this.inputManager = inputManager;
@@ -22,6 +31,8 @@ export class Player {
     this.shield = starterShip.maxShield;
     this.invulnerableUntilMs = 0;
     this.flashUntilMs = 0;
+    this.hitFeedbackStartedMs = 0;
+    this.hitFeedbackUntilMs = 0;
 
     if (!scene.textures.exists(starterShip.textureKey)) {
       throw new Error(`Texture "${starterShip.textureKey}" is not registered`);
@@ -56,21 +67,34 @@ export class Player {
 
     const aim = this.inputManager.getAimPosition();
     this.facingAngle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, aim.x, aim.y);
-    this.sprite.setRotation(this.facingAngle + starterShip.angleOffset);
+    const now = this.sprite.scene.time.now;
+    const baseRotation = this.facingAngle + starterShip.angleOffset;
 
-    if (this.sprite.alpha < 1 && this.sprite.scene.time.now >= this.flashUntilMs) {
+    if (now < this.hitFeedbackUntilMs) {
+      const elapsedMs = now - this.hitFeedbackStartedMs;
+      const decay = (this.hitFeedbackUntilMs - now) / HIT_FEEDBACK_MS;
+      const rotationJitter = Math.sin(elapsedMs * 0.09) * HIT_ROTATION_AMPLITUDE * decay;
+      this.sprite.setRotation(baseRotation + rotationJitter);
+    } else {
+      this.sprite.setRotation(baseRotation);
+      if (this.hitFeedbackUntilMs > 0) {
+        this.hitFeedbackUntilMs = 0;
+      }
+    }
+
+    if (this.sprite.alpha < 1 && now >= this.flashUntilMs) {
       this.sprite.setAlpha(1);
     }
   }
 
-  public takeHit(amount: number): boolean {
+  public takeHit(amount: number): PlayerHitResult {
     const now = this.sprite.scene.time.now;
     if (this.hull <= 0) {
-      return true;
+      return { applied: false, killed: true };
     }
 
     if (now < this.invulnerableUntilMs || amount <= 0) {
-      return false;
+      return { applied: false, killed: false };
     }
 
     let remaining = amount;
@@ -86,9 +110,11 @@ export class Player {
 
     this.invulnerableUntilMs = now + starterShip.hitIFramesMs;
     this.flashUntilMs = now + HIT_FLASH_MS;
+    this.hitFeedbackStartedMs = now;
+    this.hitFeedbackUntilMs = now + HIT_FEEDBACK_MS;
     this.sprite.setAlpha(HIT_FLASH_ALPHA);
 
-    return this.hull <= 0;
+    return { applied: true, killed: this.hull <= 0 };
   }
 
   public getSprite(): Phaser.Physics.Arcade.Sprite {

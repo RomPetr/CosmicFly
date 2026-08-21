@@ -53,6 +53,7 @@ export class PreloadScene extends Phaser.Scene {
     }
 
     this.createPulseBoltTexture();
+    this.createEnemyBoltTexture();
     this.createStarfieldTextures();
     this.scene.start(SceneKeys.Menu);
   }
@@ -86,6 +87,30 @@ export class PreloadScene extends Phaser.Scene {
     graphics.fillCircle(width - radius - 1, radius, radius - 1);
 
     graphics.generateTexture(TextureKeys.PulseBolt, width, height);
+    graphics.destroy();
+  }
+
+  private createEnemyBoltTexture(): void {
+    if (this.textures.exists(TextureKeys.EnemyBolt)) {
+      return;
+    }
+
+    const width = 14;
+    const height = 6;
+    const radius = height / 2;
+    const graphics = this.make.graphics({}, false);
+
+    graphics.fillStyle(0x33264f, 1);
+    graphics.fillRect(radius, 0, width - height, height);
+    graphics.fillCircle(radius, radius, radius);
+    graphics.fillCircle(width - radius, radius, radius);
+
+    graphics.fillStyle(0xc8b8e8, 1);
+    graphics.fillRect(radius + 1, 2, width - height - 2, height - 4);
+    graphics.fillCircle(radius + 1, radius, radius - 2);
+    graphics.fillCircle(width - radius - 1, radius, radius - 2);
+
+    graphics.generateTexture(TextureKeys.EnemyBolt, width, height);
     graphics.destroy();
   }
 

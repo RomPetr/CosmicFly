@@ -51,6 +51,7 @@ Obtained:
 Used files:
 - `public/assets/audio/player/blaster_shoot.ogg` — from `laserSmall_002`;
 - `public/assets/audio/player/rocket_launch.ogg` — from `forceField_001`;
+- `public/assets/audio/player/player_hit.ogg` — from `impactMetal_002.ogg`;
 - `public/assets/audio/enemy/enemy_blaster.ogg` — from `laserLarge_000`;
 - `public/assets/audio/enemy/enemy_missile.ogg` — from `forceField_003`;
 - `public/assets/audio/engine/engine_idle.ogg` — from `spaceEngineLow_000`;

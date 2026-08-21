@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import { Enemy } from '../entities/Enemy';
+import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { Meteor } from '../entities/Meteor';
-import type { Player } from '../entities/Player';
+import type { Player, PlayerHitResult } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 
 type PhysicsObject = Parameters<Phaser.Types.Physics.Arcade.ArcadePhysicsCallback>[0];
@@ -11,25 +12,26 @@ export class CollisionSystem {
   private readonly player: Player;
   private readonly onEnemyKilled: (enemy: Enemy) => void;
   private readonly onMeteorHit: (meteor: Meteor, destroyed: boolean) => void;
-  private readonly onPlayerKilled: () => void;
+  private readonly onPlayerHit: (result: PlayerHitResult) => void;
   private readonly colliders: Phaser.Physics.Arcade.Collider[];
   private enabled: boolean;
 
   public constructor(
     scene: Phaser.Scene,
     projectiles: Phaser.Physics.Arcade.Group,
+    enemyProjectiles: Phaser.Physics.Arcade.Group,
     enemies: Phaser.Physics.Arcade.Group,
     meteors: Phaser.Physics.Arcade.Group,
     player: Player,
     onEnemyKilled: (enemy: Enemy) => void,
     onMeteorHit: (meteor: Meteor, destroyed: boolean) => void,
-    onPlayerKilled: () => void,
+    onPlayerHit: (result: PlayerHitResult) => void,
   ) {
     this.scene = scene;
     this.player = player;
     this.onEnemyKilled = onEnemyKilled;
     this.onMeteorHit = onMeteorHit;
-    this.onPlayerKilled = onPlayerKilled;
+    this.onPlayerHit = onPlayerHit;
     this.enabled = true;
     this.colliders = [
       scene.physics.add.overlap(
@@ -51,6 +53,13 @@ export class CollisionSystem {
         meteors,
         this.handlePlayerMeteor,
         this.canPlayerHitMeteor,
+        this,
+      ),
+      scene.physics.add.overlap(
+        enemyProjectiles,
+        player.getSprite(),
+        this.handleEnemyProjectilePlayer,
+        this.canEnemyProjectileHitPlayer,
         this,
       ),
     ];
@@ -156,8 +165,35 @@ export class CollisionSystem {
     const damage = meteor.getContactDamage();
     meteor.deactivate();
 
-    if (this.player.takeHit(damage)) {
-      this.onPlayerKilled();
+    const result = this.player.takeHit(damage);
+    if (result.applied) {
+      this.onPlayerHit(result);
+    }
+  }
+
+  private canEnemyProjectileHitPlayer(
+    object1: PhysicsObject,
+    object2: PhysicsObject,
+  ): boolean {
+    if (!this.enabled || this.player.getHull() <= 0) {
+      return false;
+    }
+
+    const projectile = this.asEnemyProjectile(object1) ?? this.asEnemyProjectile(object2);
+    return projectile !== undefined && projectile.active;
+  }
+
+  private handleEnemyProjectilePlayer(object1: PhysicsObject, object2: PhysicsObject): void {
+    const projectile = this.asEnemyProjectile(object1) ?? this.asEnemyProjectile(object2);
+    if (projectile === undefined || !projectile.active) {
+      return;
+    }
+
+    const damage = projectile.getDamage();
+    projectile.deactivate();
+    const result = this.player.takeHit(damage);
+    if (result.applied) {
+      this.onPlayerHit(result);
     }
   }
 
@@ -169,6 +205,11 @@ export class CollisionSystem {
   private asEnemy(object: PhysicsObject): Enemy | undefined {
     const gameObject = this.asGameObject(object);
     return gameObject instanceof Enemy ? gameObject : undefined;
+  }
+
+  private asEnemyProjectile(object: PhysicsObject): EnemyProjectile | undefined {
+    const gameObject = this.asGameObject(object);
+    return gameObject instanceof EnemyProjectile ? gameObject : undefined;
   }
 
   private asMeteor(object: PhysicsObject): Meteor | undefined {

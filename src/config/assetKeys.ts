@@ -11,6 +11,7 @@ export type SceneKey = (typeof SceneKeys)[keyof typeof SceneKeys];
 export const TextureKeys = {
   PlayerShip: 'player-ship',
   PulseBolt: 'pulse-bolt',
+  EnemyBolt: 'enemy-bolt',
   StingDart: 'sting-dart',
   FlareMissile: 'flare-missile',
   StarfieldFar: 'starfield-far',
@@ -34,6 +35,7 @@ export const SoundKeys = {
   RocketLaunch: 'rocket-launch',
   EnemyBlaster: 'enemy-blaster',
   EnemyMissile: 'enemy-missile',
+  PlayerHit: 'player-hit',
   EngineIdle: 'engine-idle',
   EngineThrust: 'engine-thrust',
 } as const;
@@ -45,6 +47,7 @@ export const SoundPaths = {
   [SoundKeys.RocketLaunch]: '/assets/audio/player/rocket_launch.ogg',
   [SoundKeys.EnemyBlaster]: '/assets/audio/enemy/enemy_blaster.ogg',
   [SoundKeys.EnemyMissile]: '/assets/audio/enemy/enemy_missile.ogg',
+  [SoundKeys.PlayerHit]: '/assets/audio/player/player_hit.ogg',
   [SoundKeys.EngineIdle]: '/assets/audio/engine/engine_idle.ogg',
   [SoundKeys.EngineThrust]: '/assets/audio/engine/engine_thrust.ogg',
 } as const;
