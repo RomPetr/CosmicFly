@@ -129,7 +129,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.meteorSystem.update(delta, this.starfieldSystem.getScrollSpeed());
     this.weaponSystem.update(delta);
-    this.spawnSystem.update(delta);
+    this.spawnSystem.update(delta, this.starfieldSystem.getDistanceKm());
     this.enemyWeaponSystem.update(delta);
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
@@ -137,6 +137,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleEnemyKilled = (enemy: Enemy): void => {
+    this.spawnSystem.onEnemyKilled(enemy);
     this.debrisBurst.spawn(enemy.x, enemy.y);
     enemy.deactivate();
   };
@@ -172,6 +173,7 @@ export class GameScene extends Phaser.Scene {
     this.sys.game.events.off(Phaser.Core.Events.BLUR, this.deactivateEngineThrust, this);
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
+    this.spawnSystem.resetForShutdown();
     this.starfieldSystem.stop();
   }
 

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TextureKeys } from '../config/assetKeys';
-import type { EnemyDef } from '../data/enemies';
+import type { EnemyDef, EnemyId } from '../data/enemies';
+import type { PlayerProjectileDamage } from '../data/weapons';
 
 const HEALTH_BAR_WIDTH = 30;
 const HEALTH_BAR_HEIGHT = 3;
@@ -12,6 +13,7 @@ const HEALTH_BAR_FILL_WOUNDED = 0xe6a23c;
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private readonly barBackground: Phaser.GameObjects.Rectangle;
   private readonly barFill: Phaser.GameObjects.Rectangle;
+  private definition: EnemyDef | null;
   private hull: number;
   private maxHull: number;
   private moveSpeed: number;
@@ -37,6 +39,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       throw new Error(`Texture "${TextureKeys.StingDart}" is not registered`);
     }
 
+    this.definition = null;
     this.hull = 0;
     this.maxHull = 0;
     this.moveSpeed = 0;
@@ -87,6 +90,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       throw new Error(`Texture "${def.textureKey}" is not registered`);
     }
 
+    this.definition = def;
     this.hull = def.maxHull;
     this.maxHull = def.maxHull;
     this.moveSpeed = def.speed;
@@ -209,14 +213,28 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return true;
   }
 
-  public takeDamage(amount: number): boolean {
+  public takeDamage(damage: PlayerProjectileDamage): boolean {
     if (!this.active || this.hull <= 0) {
       return false;
     }
 
+    const multiplier = this.definition?.incomingDamageMultipliers[damage.sourceId] ?? 1;
+    const amount = damage.baseDamage * multiplier;
     this.hull = Math.max(0, this.hull - amount);
     this.syncHealthBar();
     return this.hull <= 0;
+  }
+
+  public getDefinition(): EnemyDef | null {
+    return this.definition;
+  }
+
+  public getEnemyId(): EnemyId | null {
+    return this.definition?.id ?? null;
+  }
+
+  public getFacingRotation(): number {
+    return this.rotation - this.noseOffset;
   }
 
   public deactivate(): void {

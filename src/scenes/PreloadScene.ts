@@ -12,6 +12,7 @@ export class PreloadScene extends Phaser.Scene {
   public preload(): void {
     this.load.image(TextureKeys.PlayerShip, TexturePaths[TextureKeys.PlayerShip]);
     this.load.image(TextureKeys.StingDart, TexturePaths[TextureKeys.StingDart]);
+    this.load.image(TextureKeys.MiddleEnemy, TexturePaths[TextureKeys.MiddleEnemy]);
     this.load.image(TextureKeys.FlareMissile, TexturePaths[TextureKeys.FlareMissile]);
     this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);

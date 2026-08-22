@@ -1,10 +1,19 @@
 import Phaser from 'phaser';
-import { stingDartEnemy } from '../data/enemies';
+import {
+  EnemyIds,
+  enemies,
+  middleEnemy,
+  stingDartEnemy,
+  type EnemyDef,
+  type EnemyId,
+} from '../data/enemies';
 import { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
 
-const MAX_ALIVE = 3;
-const RESPAWN_DELAY_MS = 1500;
+const POOL_CAPACITY = Object.values(enemies).reduce(
+  (total, enemy) => total + enemy.spawn.maxAlive,
+  0,
+);
 const SAFE_SPAWN_RADIUS = 140;
 const EDGE_INSET = 24;
 const SPAWN_ATTEMPTS = 20;
@@ -15,18 +24,22 @@ export class SpawnSystem {
   private readonly enemies: Phaser.Physics.Arcade.Group;
   private readonly spawnPosition: Phaser.Math.Vector2;
   private enabled: boolean;
-  private respawnTimerMs: number;
+  private smallRespawnTimerMs: number;
+  private middleRespawnRemainingMs: number | null;
+  private middleSpawnedOnce: boolean;
 
   public constructor(scene: Phaser.Scene, player: Player) {
     this.scene = scene;
     this.player = player;
     this.spawnPosition = new Phaser.Math.Vector2();
     this.enabled = false;
-    this.respawnTimerMs = 0;
+    this.smallRespawnTimerMs = 0;
+    this.middleRespawnRemainingMs = null;
+    this.middleSpawnedOnce = false;
 
     this.enemies = scene.physics.add.group({
       classType: Enemy,
-      maxSize: MAX_ALIVE,
+      maxSize: POOL_CAPACITY,
       runChildUpdate: false,
       allowGravity: false,
     });
@@ -38,14 +51,14 @@ export class SpawnSystem {
 
   public start(): void {
     this.enabled = true;
-    this.respawnTimerMs = 0;
+    this.resetSpawnState();
 
-    for (let index = 0; index < MAX_ALIVE; index += 1) {
-      this.spawnOne();
+    for (let index = 0; index < stingDartEnemy.spawn.maxAlive; index += 1) {
+      this.spawnEnemy(stingDartEnemy);
     }
   }
 
-  public update(delta: number): void {
+  public update(delta: number, distanceKm: number): void {
     if (!this.enabled) {
       return;
     }
@@ -56,21 +69,26 @@ export class SpawnSystem {
       }
     }
 
-    if (this.enemies.countActive(true) >= MAX_ALIVE) {
-      this.respawnTimerMs = 0;
+    this.updateSmallSpawns(delta);
+    this.updateMiddleSpawn(delta, distanceKm);
+  }
+
+  public onEnemyKilled(enemy: Enemy): void {
+    const enemyId = enemy.getEnemyId();
+    if (enemyId === EnemyIds.StingDart) {
+      this.smallRespawnTimerMs = 0;
       return;
     }
 
-    this.respawnTimerMs += delta;
-    if (this.respawnTimerMs >= RESPAWN_DELAY_MS) {
-      this.respawnTimerMs = 0;
-      this.spawnOne();
+    if (enemyId === EnemyIds.MiddleEnemy) {
+      this.middleSpawnedOnce = true;
+      this.middleRespawnRemainingMs = middleEnemy.spawn.respawnDelayMs;
     }
   }
 
   public stop(): void {
     this.enabled = false;
-    this.respawnTimerMs = 0;
+    this.resetSpawnState();
 
     if (!this.scene.sys.isActive()) {
       return;
@@ -83,18 +101,76 @@ export class SpawnSystem {
     }
   }
 
-  private spawnOne(): void {
-    if (!this.enabled || this.enemies.countActive(true) >= MAX_ALIVE) {
+  public resetForShutdown(): void {
+    this.enabled = false;
+    this.resetSpawnState();
+  }
+
+  private updateSmallSpawns(delta: number): void {
+    if (this.countActiveById(EnemyIds.StingDart) >= stingDartEnemy.spawn.maxAlive) {
+      this.smallRespawnTimerMs = 0;
       return;
+    }
+
+    this.smallRespawnTimerMs += delta;
+    if (this.smallRespawnTimerMs >= stingDartEnemy.spawn.respawnDelayMs) {
+      this.smallRespawnTimerMs = 0;
+      this.spawnEnemy(stingDartEnemy);
+    }
+  }
+
+  private updateMiddleSpawn(delta: number, distanceKm: number): void {
+    if (
+      distanceKm < middleEnemy.spawn.minDistanceKm ||
+      this.countActiveById(EnemyIds.MiddleEnemy) >= middleEnemy.spawn.maxAlive
+    ) {
+      return;
+    }
+
+    if (!this.middleSpawnedOnce) {
+      this.middleSpawnedOnce = this.spawnEnemy(middleEnemy);
+      return;
+    }
+
+    if (this.middleRespawnRemainingMs === null) {
+      return;
+    }
+
+    this.middleRespawnRemainingMs = Math.max(0, this.middleRespawnRemainingMs - delta);
+    if (this.middleRespawnRemainingMs === 0 && this.spawnEnemy(middleEnemy)) {
+      this.middleRespawnRemainingMs = null;
+    }
+  }
+
+  private spawnEnemy(def: EnemyDef): boolean {
+    if (!this.enabled || this.countActiveById(def.id) >= def.spawn.maxAlive) {
+      return false;
     }
 
     const position = this.pickSpawnPosition();
     const enemy = this.enemies.get(position.x, position.y);
     if (!(enemy instanceof Enemy)) {
-      return;
+      return false;
     }
 
-    enemy.activate(stingDartEnemy, position.x, position.y);
+    enemy.activate(def, position.x, position.y);
+    return enemy.active;
+  }
+
+  private countActiveById(enemyId: EnemyId): number {
+    let count = 0;
+    for (const child of this.enemies.getChildren()) {
+      if (child instanceof Enemy && child.active && child.getEnemyId() === enemyId) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  private resetSpawnState(): void {
+    this.smallRespawnTimerMs = 0;
+    this.middleRespawnRemainingMs = null;
+    this.middleSpawnedOnce = false;
   }
 
   private pickSpawnPosition(): Phaser.Math.Vector2 {

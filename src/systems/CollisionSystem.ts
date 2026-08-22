@@ -139,7 +139,7 @@ export class CollisionSystem {
     const damage = projectile.getDamage();
     projectile.deactivate();
 
-    const destroyed = meteor.takeDamage(damage);
+    const destroyed = meteor.takeDamage(damage.baseDamage);
     this.onMeteorHit(meteor, destroyed);
 
     if (destroyed) {
@@ -190,8 +190,9 @@ export class CollisionSystem {
     }
 
     const damage = projectile.getDamage();
+    const rotationJitterAmplitude = projectile.getRotationJitterAmplitude();
     projectile.deactivate();
-    const result = this.player.takeHit(damage);
+    const result = this.player.takeHit(damage, rotationJitterAmplitude);
     if (result.applied) {
       this.onPlayerHit(result);
     }

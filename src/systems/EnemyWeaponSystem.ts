@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { stingDartBlaster } from '../data/enemyWeapons';
+import { enemyWeapons, type EnemyWeaponDef } from '../data/enemyWeapons';
 import { Enemy } from '../entities/Enemy';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import type { Player } from '../entities/Player';
@@ -25,7 +25,10 @@ export class EnemyWeaponSystem {
     this.audioManager = audioManager;
     this.projectiles = scene.physics.add.group({
       classType: EnemyProjectile,
-      maxSize: stingDartBlaster.poolSize,
+      maxSize: Object.values(enemyWeapons).reduce(
+        (total, weapon) => total + weapon.poolSize,
+        0,
+      ),
       runChildUpdate: false,
       allowGravity: false,
     });
@@ -62,33 +65,63 @@ export class EnemyWeaponSystem {
   }
 
   private fireFrom(enemy: Enemy): void {
-    const projectile = this.projectiles.get(enemy.x, enemy.y);
-    if (!(projectile instanceof EnemyProjectile)) {
+    const enemyDef = enemy.getDefinition();
+    if (enemyDef === null) {
       return;
     }
 
+    const weapon = enemyWeapons[enemyDef.weaponId];
+    const facingRotation = enemy.getFacingRotation();
+    let volleySpawned = false;
+
+    for (const muzzle of weapon.muzzleOffsets) {
+      if (this.fireFromMuzzle(enemy, weapon, facingRotation, muzzle.forward, muzzle.lateral)) {
+        volleySpawned = true;
+      }
+    }
+
+    if (volleySpawned) {
+      this.audioManager.playSfx(weapon.soundKey);
+    }
+  }
+
+  private fireFromMuzzle(
+    enemy: Enemy,
+    weapon: EnemyWeaponDef,
+    facingRotation: number,
+    forwardOffset: number,
+    lateralOffset: number,
+  ): boolean {
+    const forwardX = Math.cos(facingRotation);
+    const forwardY = Math.sin(facingRotation);
+    const muzzleX = enemy.x + forwardX * forwardOffset - forwardY * lateralOffset;
+    const muzzleY = enemy.y + forwardY * forwardOffset + forwardX * lateralOffset;
+    const projectile = this.projectiles.get(muzzleX, muzzleY);
+    if (!(projectile instanceof EnemyProjectile)) {
+      return false;
+    }
+
     const aimRotation = Phaser.Math.Angle.Between(
-      enemy.x,
-      enemy.y,
+      muzzleX,
+      muzzleY,
       this.player.x,
       this.player.y,
     );
     const rotation = aimRotation + Phaser.Math.FloatBetween(
-      -stingDartBlaster.aimSpreadRadians,
-      stingDartBlaster.aimSpreadRadians,
+      -weapon.aimSpreadRadians,
+      weapon.aimSpreadRadians,
     );
 
-    const spawned = projectile.fire(
-      enemy.x,
-      enemy.y,
+    return projectile.fire(
+      muzzleX,
+      muzzleY,
       rotation,
-      stingDartBlaster.projectileSpeed,
-      stingDartBlaster.lifetimeMs,
-      stingDartBlaster.damage,
-      stingDartBlaster.scale,
+      weapon.projectileSpeed,
+      weapon.lifetimeMs,
+      weapon.damage,
+      weapon.rotationJitterAmplitude,
+      weapon.textureKey,
+      weapon.scale,
     );
-    if (spawned) {
-      this.audioManager.playSfx(stingDartBlaster.soundKey);
-    }
   }
 }

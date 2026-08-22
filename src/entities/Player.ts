@@ -24,6 +24,7 @@ export class Player {
   private flashUntilMs: number;
   private hitFeedbackStartedMs: number;
   private hitFeedbackUntilMs: number;
+  private hitRotationAmplitude: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number, inputManager: InputManager) {
     this.inputManager = inputManager;
@@ -34,6 +35,7 @@ export class Player {
     this.flashUntilMs = 0;
     this.hitFeedbackStartedMs = 0;
     this.hitFeedbackUntilMs = 0;
+    this.hitRotationAmplitude = HIT_ROTATION_AMPLITUDE;
 
     if (!scene.textures.exists(starterShip.textureKey)) {
       throw new Error(`Texture "${starterShip.textureKey}" is not registered`);
@@ -83,7 +85,7 @@ export class Player {
     if (now < this.hitFeedbackUntilMs) {
       const elapsedMs = now - this.hitFeedbackStartedMs;
       const decay = (this.hitFeedbackUntilMs - now) / HIT_FEEDBACK_MS;
-      const rotationJitter = Math.sin(elapsedMs * 0.09) * HIT_ROTATION_AMPLITUDE * decay;
+      const rotationJitter = Math.sin(elapsedMs * 0.09) * this.hitRotationAmplitude * decay;
       this.sprite.setRotation(baseRotation + rotationJitter);
     } else {
       this.sprite.setRotation(baseRotation);
@@ -108,7 +110,10 @@ export class Player {
     }
   }
 
-  public takeHit(amount: number): PlayerHitResult {
+  public takeHit(
+    amount: number,
+    rotationJitterAmplitude = HIT_ROTATION_AMPLITUDE,
+  ): PlayerHitResult {
     const now = this.sprite.scene.time.now;
     if (this.hull <= 0) {
       return { applied: false, killed: true };
@@ -133,6 +138,7 @@ export class Player {
     this.flashUntilMs = now + HIT_FLASH_MS;
     this.hitFeedbackStartedMs = now;
     this.hitFeedbackUntilMs = now + HIT_FEEDBACK_MS;
+    this.hitRotationAmplitude = Math.max(0, rotationJitterAmplitude);
     this.sprite.setAlpha(HIT_FLASH_ALPHA);
 
     return { applied: true, killed: this.hull <= 0 };

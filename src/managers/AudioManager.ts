@@ -4,6 +4,7 @@ import { SoundKeys, type SoundKey } from '../config/assetKeys';
 const VOLUME_PULSE = 0.4;
 const VOLUME_MISSILE = 0.5;
 const VOLUME_ENEMY_BLASTER = 0.3;
+const VOLUME_MIDDLE_ENEMY_BLASTER = 0.42;
 const VOLUME_PLAYER_HIT = 0.5;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
@@ -150,6 +151,10 @@ export class AudioManager {
 
     if (key === SoundKeys.EnemyBlaster) {
       return VOLUME_ENEMY_BLASTER;
+    }
+
+    if (key === SoundKeys.MiddleEnemyBlaster) {
+      return VOLUME_MIDDLE_ENEMY_BLASTER;
     }
 
     if (key === SoundKeys.PlayerHit) {

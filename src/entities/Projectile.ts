@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
+import { WeaponIds, type PlayerProjectileDamage } from '../data/weapons';
 
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   private elapsedMs: number;
   private lifetimeMs: number;
-  private damage: number;
+  private damage: PlayerProjectileDamage;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.PulseBolt);
@@ -15,7 +16,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
 
     this.elapsedMs = 0;
     this.lifetimeMs = 0;
-    this.damage = 0;
+    this.damage = {
+      sourceId: WeaponIds.PulseBeam,
+      baseDamage: 0,
+    };
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -28,7 +32,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     rotation: number,
     speed: number,
     lifetimeMs: number,
-    damage: number,
+    damage: PlayerProjectileDamage,
     textureKey: TextureKey,
     scale: number,
     angleOffset: number,
@@ -60,7 +64,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.damage = damage;
   }
 
-  public getDamage(): number {
+  public getDamage(): PlayerProjectileDamage {
     return this.damage;
   }
 

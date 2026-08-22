@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { TextureKeys } from '../config/assetKeys';
+import { TextureKeys, type TextureKey } from '../config/assetKeys';
 
 export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
   private elapsedMs = 0;
   private lifetimeMs = 0;
   private damage = 0;
+  private rotationJitterAmplitude = 0;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.EnemyBolt);
@@ -25,9 +26,15 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     speed: number,
     lifetimeMs: number,
     damage: number,
+    rotationJitterAmplitude: number,
+    textureKey: TextureKey,
     scale: number,
   ): boolean {
-    this.setTexture(TextureKeys.EnemyBolt);
+    if (!this.scene.textures.exists(textureKey)) {
+      return false;
+    }
+
+    this.setTexture(textureKey);
     this.setScale(scale);
     this.enableBody(true, x, y, true, true);
     this.setRotation(rotation);
@@ -48,11 +55,16 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     this.elapsedMs = 0;
     this.lifetimeMs = lifetimeMs;
     this.damage = damage;
+    this.rotationJitterAmplitude = rotationJitterAmplitude;
     return true;
   }
 
   public getDamage(): number {
     return this.damage;
+  }
+
+  public getRotationJitterAmplitude(): number {
+    return this.rotationJitterAmplitude;
   }
 
   public preUpdate(time: number, delta: number): void {
