@@ -6,6 +6,12 @@ export const starterShip = {
   textureKey: TextureKeys.PlayerShip,
   scale: 0.42,
   angleOffset: -Math.PI / 2,
+  engineFlame: {
+    textureKey: TextureKeys.EngineFlame,
+    offsetPx: 24,
+    scale: 0.6,
+    depth: -1,
+  },
   muzzleOffsetPx: 22,
   acceleration: 500,
   maxSpeed: 280,

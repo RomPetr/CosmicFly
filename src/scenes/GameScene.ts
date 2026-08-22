@@ -104,6 +104,9 @@ export class GameScene extends Phaser.Scene {
 
     endFlight.on('pointerdown', this.goToGameOver, this);
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
+    this.events.on(Phaser.Scenes.Events.PAUSE, this.deactivateEngineThrust, this);
+    this.sys.game.events.on(Phaser.Core.Events.BLUR, this.deactivateEngineThrust, this);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     this.audioManager.startFlight();
     this.syncHud();
@@ -115,7 +118,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.inputManager.update();
-    this.audioManager.updateThrust(this.inputManager.getMoveVector().lengthSq() > 0);
+    const wThrustActive = this.inputManager.isWThrustActive();
+    this.player.setEngineThrustActive(wThrustActive);
+    this.audioManager.updateThrust(wThrustActive);
     this.player.update();
     this.starfieldSystem.update(
       delta,
@@ -160,11 +165,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onShutdown(): void {
+    this.deactivateEngineThrust();
     this.audioManager.stopFlight();
     this.input.keyboard?.off('keydown-ESC', this.goToGameOver, this);
+    this.events.off(Phaser.Scenes.Events.PAUSE, this.deactivateEngineThrust, this);
+    this.sys.game.events.off(Phaser.Core.Events.BLUR, this.deactivateEngineThrust, this);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
     this.starfieldSystem.stop();
   }
+
+  private deactivateEngineThrust(): void {
+    this.player.setEngineThrustActive(false);
+    this.audioManager.updateThrust(false);
+  }
+
+  private handleVisibilityChange = (): void => {
+    if (document.visibilityState === 'hidden') {
+      this.deactivateEngineThrust();
+    }
+  };
 
   private goToGameOver(): void {
     if (this.transitioning) {
@@ -172,6 +192,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.transitioning = true;
+    this.deactivateEngineThrust();
     this.input.enabled = false;
     this.physics.world.pause();
     this.collisionSystem.stop();

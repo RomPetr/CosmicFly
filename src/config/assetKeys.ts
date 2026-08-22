@@ -18,6 +18,7 @@ export const TextureKeys = {
   StarfieldNear: 'starfield-near',
   AshChunkA: 'ash-chunk-a',
   AshChunkB: 'ash-chunk-b',
+  EngineFlame: 'engine-flame',
 } as const;
 
 export type TextureKey = (typeof TextureKeys)[keyof typeof TextureKeys];
@@ -28,6 +29,7 @@ export const TexturePaths = {
   [TextureKeys.FlareMissile]: '/assets/projectiles/missiles/spaceMissiles_006.png',
   [TextureKeys.AshChunkA]: '/assets/meteors/ash-chunk/spaceMeteors_001.png',
   [TextureKeys.AshChunkB]: '/assets/meteors/ash-chunk/spaceMeteors_003.png',
+  [TextureKeys.EngineFlame]: '/assets/effects/engine/engine_flame.png',
 } as const;
 
 export const SoundKeys = {
@@ -36,8 +38,8 @@ export const SoundKeys = {
   EnemyBlaster: 'enemy-blaster',
   EnemyMissile: 'enemy-missile',
   PlayerHit: 'player-hit',
-  EngineIdle: 'engine-idle',
-  EngineThrust: 'engine-thrust',
+  EngineLow: 'engine-low',
+  EngineLarge: 'engine-large',
 } as const;
 
 export type SoundKey = (typeof SoundKeys)[keyof typeof SoundKeys];
@@ -48,8 +50,8 @@ export const SoundPaths = {
   [SoundKeys.EnemyBlaster]: '/assets/audio/enemy/enemy_blaster.ogg',
   [SoundKeys.EnemyMissile]: '/assets/audio/enemy/enemy_missile.ogg',
   [SoundKeys.PlayerHit]: '/assets/audio/player/player_hit.ogg',
-  [SoundKeys.EngineIdle]: '/assets/audio/engine/engine_idle.ogg',
-  [SoundKeys.EngineThrust]: '/assets/audio/engine/engine_thrust.ogg',
+  [SoundKeys.EngineLow]: '/assets/audio/engine/engine_low.ogg',
+  [SoundKeys.EngineLarge]: '/assets/audio/engine/engine_large.ogg',
 } as const;
 
 export const SkinIds = {

@@ -15,6 +15,7 @@ export type PlayerHitResult = {
 
 export class Player {
   private readonly sprite: Phaser.Physics.Arcade.Sprite;
+  private readonly engineFlame: Phaser.GameObjects.Image;
   private readonly inputManager: InputManager;
   private facingAngle: number;
   private hull: number;
@@ -37,7 +38,16 @@ export class Player {
     if (!scene.textures.exists(starterShip.textureKey)) {
       throw new Error(`Texture "${starterShip.textureKey}" is not registered`);
     }
+    if (!scene.textures.exists(starterShip.engineFlame.textureKey)) {
+      throw new Error(`Texture "${starterShip.engineFlame.textureKey}" is not registered`);
+    }
 
+    this.engineFlame = scene.add.image(x, y, starterShip.engineFlame.textureKey);
+    this.engineFlame
+      .setOrigin(0.5, 0.5)
+      .setScale(starterShip.engineFlame.scale)
+      .setDepth(starterShip.engineFlame.depth)
+      .setVisible(false);
     this.sprite = scene.physics.add.sprite(x, y, starterShip.textureKey);
     this.sprite.setOrigin(0.5, 0.5);
     this.sprite.setScale(starterShip.scale);
@@ -84,6 +94,17 @@ export class Player {
 
     if (this.sprite.alpha < 1 && now >= this.flashUntilMs) {
       this.sprite.setAlpha(1);
+    }
+
+    if (this.engineFlame.visible) {
+      this.syncEngineFlame();
+    }
+  }
+
+  public setEngineThrustActive(active: boolean): void {
+    this.engineFlame.setVisible(active);
+    if (active) {
+      this.syncEngineFlame();
     }
   }
 
@@ -146,5 +167,14 @@ export class Player {
       this.sprite.x + Math.cos(this.facingAngle) * starterShip.muzzleOffsetPx,
       this.sprite.y + Math.sin(this.facingAngle) * starterShip.muzzleOffsetPx,
     );
+  }
+
+  private syncEngineFlame(): void {
+    this.engineFlame
+      .setPosition(
+        this.sprite.x - Math.cos(this.facingAngle) * starterShip.engineFlame.offsetPx,
+        this.sprite.y - Math.sin(this.facingAngle) * starterShip.engineFlame.offsetPx,
+      )
+      .setRotation(this.sprite.rotation);
   }
 }

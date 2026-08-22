@@ -15,6 +15,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.FlareMissile, TexturePaths[TextureKeys.FlareMissile]);
     this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
+    this.load.image(TextureKeys.EngineFlame, TexturePaths[TextureKeys.EngineFlame]);
 
     for (const key of Object.values(SoundKeys)) {
       this.load.audio(key, SoundPaths[key]);

@@ -11,6 +11,7 @@ export class InputManager {
   private readonly aimPosition: Phaser.Math.Vector2;
   private pulseFiring: boolean;
   private missileFiring: boolean;
+  private wThrustActive: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -18,6 +19,7 @@ export class InputManager {
     this.aimPosition = new Phaser.Math.Vector2(scene.scale.width / 2, scene.scale.height / 2);
     this.pulseFiring = false;
     this.missileFiring = false;
+    this.wThrustActive = false;
 
     const keyboard = scene.input.keyboard;
     if (keyboard === null) {
@@ -36,6 +38,7 @@ export class InputManager {
       this.moveVector.set(0, 0);
       this.pulseFiring = false;
       this.missileFiring = false;
+      this.wThrustActive = false;
       return;
     }
 
@@ -62,6 +65,7 @@ export class InputManager {
     if (this.moveVector.lengthSq() > 1) {
       this.moveVector.normalize();
     }
+    this.wThrustActive = this.keyW.isDown && this.moveVector.y < 0;
 
     const pointer = this.scene.input.activePointer;
     pointer.updateWorldPoint(this.scene.cameras.main);
@@ -87,7 +91,11 @@ export class InputManager {
     return this.missileFiring;
   }
 
+  public isWThrustActive(): boolean {
+    return this.wThrustActive;
+  }
+
   private isWindowFocused(): boolean {
-    return document.visibilityState !== 'hidden';
+    return document.visibilityState !== 'hidden' && document.hasFocus();
   }
 }

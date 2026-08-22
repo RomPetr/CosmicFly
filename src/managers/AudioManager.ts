@@ -5,40 +5,49 @@ const VOLUME_PULSE = 0.4;
 const VOLUME_MISSILE = 0.5;
 const VOLUME_ENEMY_BLASTER = 0.3;
 const VOLUME_PLAYER_HIT = 0.5;
-const VOLUME_ENGINE_IDLE = 0.16;
-const VOLUME_ENGINE_THRUST = 0.38;
+const VOLUME_ENGINE_LOW = 0.14;
+const VOLUME_ENGINE_LARGE = 0.2;
 
 type EngineLoop = Phaser.Sound.HTML5AudioSound | Phaser.Sound.WebAudioSound | Phaser.Sound.NoAudioSound;
 
 export class AudioManager {
   private readonly scene: Phaser.Scene;
-  private idleLoop: EngineLoop | null;
-  private thrustLoop: EngineLoop | null;
+  private engineLowLoop: EngineLoop | null;
+  private engineLargeLoop: EngineLoop | null;
   private flightActive: boolean;
-  private loopsStarted: boolean;
+  private loopsPrepared: boolean;
+  private waitingForUnlock: boolean;
   private thrusting: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.idleLoop = null;
-    this.thrustLoop = null;
+    this.engineLowLoop = null;
+    this.engineLargeLoop = null;
     this.flightActive = false;
-    this.loopsStarted = false;
+    this.loopsPrepared = false;
+    this.waitingForUnlock = false;
     this.thrusting = false;
   }
 
   public startFlight(): void {
     this.flightActive = true;
-    this.startEngineLoops();
+    this.thrusting = false;
+    this.prepareEngineLoops();
   }
 
   public updateThrust(isThrusting: boolean): void {
-    this.thrusting = isThrusting;
-    if (this.thrustLoop === null) {
+    if (!this.flightActive || this.thrusting === isThrusting) {
       return;
     }
 
-    this.thrustLoop.volume = isThrusting ? VOLUME_ENGINE_THRUST : 0;
+    this.thrusting = isThrusting;
+    if (!isThrusting) {
+      this.stopEngineLoops();
+      return;
+    }
+
+    this.prepareEngineLoops();
+    this.playEngineLoops();
   }
 
   public playSfx(key: SoundKey): void {
@@ -50,17 +59,19 @@ export class AudioManager {
   }
 
   public stopFlight(): void {
+    this.thrusting = false;
     this.flightActive = false;
-    this.loopsStarted = false;
-    this.scene.sound.off(Phaser.Sound.Events.UNLOCKED, this.startEngineLoops, this);
-    this.stopLoop(this.idleLoop);
-    this.stopLoop(this.thrustLoop);
-    this.idleLoop = null;
-    this.thrustLoop = null;
+    this.loopsPrepared = false;
+    this.waitingForUnlock = false;
+    this.scene.sound.off(Phaser.Sound.Events.UNLOCKED, this.prepareEngineLoops, this);
+    this.destroyLoop(this.engineLowLoop);
+    this.destroyLoop(this.engineLargeLoop);
+    this.engineLowLoop = null;
+    this.engineLargeLoop = null;
   }
 
-  private startEngineLoops(): void {
-    if (!this.flightActive || this.loopsStarted) {
+  private prepareEngineLoops(): void {
+    if (!this.flightActive || this.loopsPrepared) {
       return;
     }
 
@@ -69,16 +80,21 @@ export class AudioManager {
     }
 
     if (this.scene.sound.locked) {
-      this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, this.startEngineLoops, this);
+      if (!this.waitingForUnlock) {
+        this.waitingForUnlock = true;
+        this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, this.prepareEngineLoops, this);
+      }
       return;
     }
 
-    this.loopsStarted = true;
-    this.idleLoop = this.createLoop(SoundKeys.EngineIdle, VOLUME_ENGINE_IDLE);
-    this.thrustLoop = this.createLoop(
-      SoundKeys.EngineThrust,
-      this.thrusting ? VOLUME_ENGINE_THRUST : 0,
-    );
+    this.waitingForUnlock = false;
+    this.loopsPrepared = true;
+    this.engineLowLoop = this.createLoop(SoundKeys.EngineLow, VOLUME_ENGINE_LOW);
+    this.engineLargeLoop = this.createLoop(SoundKeys.EngineLarge, VOLUME_ENGINE_LARGE);
+
+    if (this.thrusting) {
+      this.playEngineLoops();
+    }
   }
 
   private createLoop(key: SoundKey, volume: number): EngineLoop | null {
@@ -87,16 +103,39 @@ export class AudioManager {
     }
 
     const sound = this.scene.sound.add(key, { loop: true, volume });
-    sound.play();
     return sound;
   }
 
+  private playEngineLoops(): void {
+    this.playLoop(this.engineLowLoop);
+    this.playLoop(this.engineLargeLoop);
+  }
+
+  private playLoop(sound: EngineLoop | null): void {
+    if (sound !== null && !sound.isPlaying) {
+      sound.play();
+    }
+  }
+
+  private stopEngineLoops(): void {
+    this.stopLoop(this.engineLowLoop);
+    this.stopLoop(this.engineLargeLoop);
+  }
+
   private stopLoop(sound: EngineLoop | null): void {
+    if (sound !== null && sound.isPlaying) {
+      sound.stop();
+    }
+  }
+
+  private destroyLoop(sound: EngineLoop | null): void {
     if (sound === null) {
       return;
     }
 
-    sound.stop();
+    if (sound.isPlaying) {
+      sound.stop();
+    }
     sound.destroy();
   }
 
