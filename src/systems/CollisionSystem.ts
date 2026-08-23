@@ -148,7 +148,7 @@ export class CollisionSystem {
   }
 
   private canPlayerHitMeteor(_object1: PhysicsObject, object2: PhysicsObject): boolean {
-    if (!this.enabled || this.player.getHull() <= 0) {
+    if (!this.enabled || this.player.getHealth() <= 0) {
       return false;
     }
 
@@ -175,7 +175,7 @@ export class CollisionSystem {
     object1: PhysicsObject,
     object2: PhysicsObject,
   ): boolean {
-    if (!this.enabled || this.player.getHull() <= 0) {
+    if (!this.enabled || this.player.getHealth() <= 0) {
       return false;
     }
 

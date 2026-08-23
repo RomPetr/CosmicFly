@@ -6,6 +6,7 @@ const VOLUME_MISSILE = 0.5;
 const VOLUME_ENEMY_BLASTER = 0.3;
 const VOLUME_MIDDLE_ENEMY_BLASTER = 0.42;
 const VOLUME_PLAYER_HIT = 0.5;
+const VOLUME_PLAYER_EXPLOSION = 0.85;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
 
@@ -159,6 +160,10 @@ export class AudioManager {
 
     if (key === SoundKeys.PlayerHit) {
       return VOLUME_PLAYER_HIT;
+    }
+
+    if (key === SoundKeys.PlayerExplosion) {
+      return VOLUME_PLAYER_EXPLOSION;
     }
 
     return VOLUME_PULSE;

@@ -55,7 +55,8 @@ Kenney Vleugels (Kenney.nl)
 
 Obtained:
 - 2026-08-19 — player and enemy audio;
-- 2026-08-22 — engine audio and Middle Enemy blaster.
+- 2026-08-22 — engine audio and Middle Enemy blaster;
+- 2026-08-23 — player explosion.
 
 Used files:
 - `public/assets/audio/player/blaster_shoot.ogg` — from `laserSmall_002`;
@@ -65,4 +66,22 @@ Used files:
 - `public/assets/audio/enemy/middle_enemy_blaster.ogg` — from `laserLarge_002.ogg`, Middle Enemy twin-beam volley;
 - `public/assets/audio/enemy/enemy_missile.ogg` — from `forceField_003`;
 - `public/assets/audio/engine/engine_low.ogg` — from `spaceEngineLow_002.ogg`;
-- `public/assets/audio/engine/engine_large.ogg` — from `spaceEngineLarge_001.ogg`.
+- `public/assets/audio/engine/engine_large.ogg` — from `spaceEngineLarge_001.ogg`;
+- `public/assets/audio/player/player_explosion.ogg` — from `explosionCrunch_004.ogg`, player ship destruction.
+
+## Cuzco — Explosion
+
+Source:
+https://opengameart.org/content/explosion
+
+License:
+Creative Commons CC0 1.0 (public domain)
+
+Author:
+Cuzco (OpenGameArt.org)
+
+Obtained:
+2026-08-23
+
+Used files:
+- `public/assets/effects/explosion/explosion_sheet.png` — from `exp2_0.png`, 4x4 sprite sheet of 16 frames at 64x64, player ship explosion animation.

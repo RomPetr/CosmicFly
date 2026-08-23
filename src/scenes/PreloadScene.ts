@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
-import { SceneKeys, SoundKeys, SoundPaths, TextureKeys, TexturePaths, type TextureKey } from '../config/assetKeys';
+import {
+  AnimationKeys,
+  ExplosionSheet,
+  SceneKeys,
+  SoundKeys,
+  SoundPaths,
+  TextureKeys,
+  TexturePaths,
+  type TextureKey,
+} from '../config/assetKeys';
 
 const PROGRESS_BAR_WIDTH = 320;
 const PROGRESS_BAR_HEIGHT = 18;
@@ -17,6 +26,10 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
     this.load.image(TextureKeys.EngineFlame, TexturePaths[TextureKeys.EngineFlame]);
+    this.load.spritesheet(TextureKeys.Explosion, TexturePaths[TextureKeys.Explosion], {
+      frameWidth: ExplosionSheet.frameWidth,
+      frameHeight: ExplosionSheet.frameHeight,
+    });
 
     for (const key of Object.values(SoundKeys)) {
       this.load.audio(key, SoundPaths[key]);
@@ -57,7 +70,28 @@ export class PreloadScene extends Phaser.Scene {
     this.createPulseBoltTexture();
     this.createEnemyBoltTexture();
     this.createStarfieldTextures();
+    this.createExplosionAnimation();
     this.scene.start(SceneKeys.Menu);
+  }
+
+  private createExplosionAnimation(): void {
+    if (
+      this.anims.exists(AnimationKeys.Explosion) ||
+      !this.textures.exists(TextureKeys.Explosion)
+    ) {
+      return;
+    }
+
+    this.anims.create({
+      key: AnimationKeys.Explosion,
+      frames: this.anims.generateFrameNumbers(TextureKeys.Explosion, {
+        start: 0,
+        end: ExplosionSheet.frameCount - 1,
+      }),
+      frameRate: ExplosionSheet.frameRate,
+      repeat: 0,
+      hideOnComplete: true,
+    });
   }
 
   private handleLoadError(file: Phaser.Loader.File): void {

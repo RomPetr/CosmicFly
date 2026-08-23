@@ -9,6 +9,7 @@ export type MeteorId = (typeof MeteorIds)[keyof typeof MeteorIds];
 export type MeteorDef = {
   readonly id: MeteorId;
   readonly textureKeys: readonly TextureKey[];
+  /** Player health percentage points removed on contact. */
   readonly contactDamage: number;
   readonly maxHull: number;
   readonly speedMin: number;
@@ -31,7 +32,7 @@ export type MeteorDef = {
 export const ashChunkMeteor: MeteorDef = {
   id: MeteorIds.AshChunk,
   textureKeys: [TextureKeys.AshChunkA, TextureKeys.AshChunkB],
-  contactDamage: 1,
+  contactDamage: 5,
   maxHull: 3,
   speedMin: 50,
   speedMax: 140,

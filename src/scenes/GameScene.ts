@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { SceneKeys, SoundKeys } from '../config/assetKeys';
-import { starterShip } from '../data/ships';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
 import { Player, type PlayerHitResult } from '../entities/Player';
-import { DebrisBurst } from '../effects/DebrisBurst';
+import { DebrisBurst, playerDebrisConfig } from '../effects/DebrisBurst';
+import { ExplosionEffect } from '../effects/ExplosionEffect';
 import { MeteorDebrisBurst } from '../effects/MeteorDebrisBurst';
 import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
@@ -14,6 +14,10 @@ import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { StarfieldSystem } from '../systems/StarfieldSystem';
 import { WeaponSystem } from '../systems/WeaponSystem';
+
+const DEATH_TO_GAME_OVER_MS = 1500;
+const DEATH_SHAKE_MS = 280;
+const DEATH_SHAKE_INTENSITY = 0.009;
 
 export class GameScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -27,8 +31,11 @@ export class GameScene extends Phaser.Scene {
   private collisionSystem!: CollisionSystem;
   private debrisBurst!: DebrisBurst;
   private meteorDebrisBurst!: MeteorDebrisBurst;
+  private playerDebrisBurst!: DebrisBurst;
+  private playerExplosion!: ExplosionEffect;
   private hudText!: Phaser.GameObjects.Text;
   private transitioning = false;
+  private destroyingPlayer = false;
 
   public constructor() {
     super({ key: SceneKeys.Game });
@@ -36,6 +43,7 @@ export class GameScene extends Phaser.Scene {
 
   public create(): void {
     this.transitioning = false;
+    this.destroyingPlayer = false;
 
     const { width, height } = this.scale;
 
@@ -60,6 +68,8 @@ export class GameScene extends Phaser.Scene {
     this.meteorSystem = new MeteorSystem(this, this.player);
     this.debrisBurst = new DebrisBurst(this);
     this.meteorDebrisBurst = new MeteorDebrisBurst(this);
+    this.playerDebrisBurst = new DebrisBurst(this, playerDebrisConfig);
+    this.playerExplosion = new ExplosionEffect(this);
     this.collisionSystem = new CollisionSystem(
       this,
       this.weaponSystem.getProjectiles(),
@@ -117,6 +127,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.destroyingPlayer) {
+      this.updateDestructionScene(delta);
+      return;
+    }
+
     this.inputManager.update();
     const wThrustActive = this.inputManager.isWThrustActive();
     this.player.setEngineThrustActive(wThrustActive);
@@ -152,17 +167,44 @@ export class GameScene extends Phaser.Scene {
   };
 
   private handlePlayerHit = (result: PlayerHitResult): void => {
-    this.audioManager.playSfx(SoundKeys.PlayerHit);
     if (result.killed) {
-      this.goToGameOver();
+      this.destroyPlayer();
+      return;
     }
+
+    this.audioManager.playSfx(SoundKeys.PlayerHit);
   };
+
+  private destroyPlayer(): void {
+    if (this.destroyingPlayer || this.transitioning) {
+      return;
+    }
+
+    this.destroyingPlayer = true;
+    this.deactivateEngineThrust();
+    this.input.enabled = false;
+    this.collisionSystem.stop();
+
+    const { x, y } = this.player;
+    this.player.hideForDestruction();
+    this.playerExplosion.spawnBurst(x, y);
+    this.playerDebrisBurst.spawn(x, y);
+    this.audioManager.playSfx(SoundKeys.PlayerExplosion);
+    this.cameras.main.shake(DEATH_SHAKE_MS, DEATH_SHAKE_INTENSITY);
+    this.time.delayedCall(DEATH_TO_GAME_OVER_MS, this.goToGameOver, undefined, this);
+  }
+
+  private updateDestructionScene(delta: number): void {
+    this.starfieldSystem.update(delta, 0, 0);
+    this.meteorSystem.update(delta, this.starfieldSystem.getScrollSpeed());
+    this.debrisBurst.update(delta);
+    this.meteorDebrisBurst.update(delta);
+    this.playerDebrisBurst.update(delta);
+  }
 
   private syncHud(): void {
     const distanceKm = Math.floor(this.starfieldSystem.getDistanceKm());
-    this.hudText.setText(
-      `Hull ${this.player.getHull()}/${starterShip.maxHull}  Shield ${this.player.getShield()}/${starterShip.maxShield}  ${distanceKm} km`,
-    );
+    this.hudText.setText(`Health ${this.player.getHealthPercent()}%  ${distanceKm} km`);
   }
 
   private onShutdown(): void {
@@ -215,6 +257,8 @@ export class GameScene extends Phaser.Scene {
     this.starfieldSystem.stop();
     this.debrisBurst.stop();
     this.meteorDebrisBurst.stop();
+    this.playerDebrisBurst.stop();
+    this.playerExplosion.stop();
     this.scene.start(SceneKeys.GameOver);
   }
 }

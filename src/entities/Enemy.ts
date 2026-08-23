@@ -2,17 +2,10 @@ import Phaser from 'phaser';
 import { TextureKeys } from '../config/assetKeys';
 import type { EnemyDef, EnemyId } from '../data/enemies';
 import type { PlayerProjectileDamage } from '../data/weapons';
-
-const HEALTH_BAR_WIDTH = 30;
-const HEALTH_BAR_HEIGHT = 3;
-const HEALTH_BAR_GAP = 6;
-const HEALTH_BAR_BACKGROUND = 0x141820;
-const HEALTH_BAR_FILL_HEALTHY = 0x3ecf6a;
-const HEALTH_BAR_FILL_WOUNDED = 0xe6a23c;
+import { HealthBar, enemyHealthBarStyle } from '../ui/HealthBar';
 
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
-  private readonly barBackground: Phaser.GameObjects.Rectangle;
-  private readonly barFill: Phaser.GameObjects.Rectangle;
+  private readonly healthBar: HealthBar;
   private definition: EnemyDef | null;
   private hull: number;
   private maxHull: number;
@@ -62,27 +55,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setActive(false);
     this.setVisible(false);
 
-    this.barBackground = scene.add.rectangle(
-      x,
-      y,
-      HEALTH_BAR_WIDTH,
-      HEALTH_BAR_HEIGHT,
-      HEALTH_BAR_BACKGROUND,
-    );
-    this.barBackground.setOrigin(0.5, 0.5);
-    this.barBackground.setDepth(6);
-    this.barBackground.setVisible(false);
-
-    this.barFill = scene.add.rectangle(
-      x,
-      y,
-      HEALTH_BAR_WIDTH,
-      HEALTH_BAR_HEIGHT,
-      HEALTH_BAR_FILL_HEALTHY,
-    );
-    this.barFill.setOrigin(0, 0.5);
-    this.barFill.setDepth(7);
-    this.barFill.setVisible(false);
+    this.healthBar = new HealthBar(scene, enemyHealthBarStyle);
   }
 
   public activate(def: EnemyDef, x: number, y: number): void {
@@ -135,8 +108,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.setVelocity(0, 0);
 
     this.syncHealthBar();
-    this.barBackground.setVisible(true);
-    this.barFill.setVisible(true);
+    this.healthBar.setVisible(true);
   }
 
   public updateBehavior(targetX: number, targetY: number, delta: number): void {
@@ -248,25 +220,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.disableBody(true, true);
-    this.barBackground.setVisible(false);
-    this.barFill.setVisible(false);
+    this.healthBar.setVisible(false);
   }
 
   private syncHealthBar(): void {
-    const barY = this.y - this.displayHeight * 0.5 - HEALTH_BAR_GAP;
-    this.barBackground.setPosition(this.x, barY);
-    this.barFill.setPosition(this.x - HEALTH_BAR_WIDTH / 2, barY);
+    this.healthBar.positionAbove(this.x, this.y - this.displayHeight * 0.5);
 
     if (this.hull <= 0 || this.maxHull <= 0) {
-      this.barBackground.setVisible(false);
-      this.barFill.setVisible(false);
+      this.healthBar.setVisible(false);
       return;
     }
 
-    this.barFill.width = HEALTH_BAR_WIDTH * (this.hull / this.maxHull);
-    this.barFill.setFillStyle(
-      this.hull <= 1 ? HEALTH_BAR_FILL_WOUNDED : HEALTH_BAR_FILL_HEALTHY,
-    );
+    this.healthBar.setRatio(this.hull / this.maxHull);
   }
 
   private randomFireInterval(): number {

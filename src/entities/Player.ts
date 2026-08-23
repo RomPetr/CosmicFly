@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { physicsConfig } from '../config/physicsConfig';
 import { starterShip } from '../data/ships';
 import type { InputManager } from '../managers/InputManager';
+import { HealthBar, playerHealthBarStyle } from '../ui/HealthBar';
 
 const HIT_FLASH_MS = 90;
 const HIT_FLASH_ALPHA = 0.4;
@@ -17,9 +18,9 @@ export class Player {
   private readonly sprite: Phaser.Physics.Arcade.Sprite;
   private readonly engineFlame: Phaser.GameObjects.Image;
   private readonly inputManager: InputManager;
+  private readonly healthBar: HealthBar;
   private facingAngle: number;
-  private hull: number;
-  private shield: number;
+  private health: number;
   private invulnerableUntilMs: number;
   private flashUntilMs: number;
   private hitFeedbackStartedMs: number;
@@ -29,8 +30,7 @@ export class Player {
   public constructor(scene: Phaser.Scene, x: number, y: number, inputManager: InputManager) {
     this.inputManager = inputManager;
     this.facingAngle = 0;
-    this.hull = starterShip.maxHull;
-    this.shield = starterShip.maxShield;
+    this.health = starterShip.maxHealth;
     this.invulnerableUntilMs = 0;
     this.flashUntilMs = 0;
     this.hitFeedbackStartedMs = 0;
@@ -68,6 +68,10 @@ export class Player {
     this.sprite.setCollideWorldBounds(true);
     this.sprite.setBounce(physicsConfig.edgeBounce);
     body.setMaxSpeed(starterShip.maxSpeed);
+
+    this.healthBar = new HealthBar(scene, playerHealthBarStyle);
+    this.healthBar.setVisible(true);
+    this.syncHealthBar();
   }
 
   public update(): void {
@@ -101,6 +105,8 @@ export class Player {
     if (this.engineFlame.visible) {
       this.syncEngineFlame();
     }
+
+    this.syncHealthBar();
   }
 
   public setEngineThrustActive(active: boolean): void {
@@ -115,7 +121,7 @@ export class Player {
     rotationJitterAmplitude = HIT_ROTATION_AMPLITUDE,
   ): PlayerHitResult {
     const now = this.sprite.scene.time.now;
-    if (this.hull <= 0) {
+    if (this.health <= 0) {
       return { applied: false, killed: true };
     }
 
@@ -123,16 +129,8 @@ export class Player {
       return { applied: false, killed: false };
     }
 
-    let remaining = amount;
-    if (this.shield > 0) {
-      const absorbed = Math.min(this.shield, remaining);
-      this.shield -= absorbed;
-      remaining -= absorbed;
-    }
-
-    if (remaining > 0) {
-      this.hull = Math.max(0, this.hull - remaining);
-    }
+    this.health = Math.max(0, this.health - amount);
+    this.syncHealthBar();
 
     this.invulnerableUntilMs = now + starterShip.hitIFramesMs;
     this.flashUntilMs = now + HIT_FLASH_MS;
@@ -141,19 +139,31 @@ export class Player {
     this.hitRotationAmplitude = Math.max(0, rotationJitterAmplitude);
     this.sprite.setAlpha(HIT_FLASH_ALPHA);
 
-    return { applied: true, killed: this.hull <= 0 };
+    return { applied: true, killed: this.health <= 0 };
+  }
+
+  public hideForDestruction(): void {
+    this.sprite.setVisible(false);
+    this.engineFlame.setVisible(false);
+    this.healthBar.setVisible(false);
+
+    const body = this.sprite.body;
+    if (body instanceof Phaser.Physics.Arcade.Body) {
+      body.stop();
+      this.sprite.setAcceleration(0, 0);
+    }
   }
 
   public getSprite(): Phaser.Physics.Arcade.Sprite {
     return this.sprite;
   }
 
-  public getHull(): number {
-    return this.hull;
+  public getHealth(): number {
+    return this.health;
   }
 
-  public getShield(): number {
-    return this.shield;
+  public getHealthPercent(): number {
+    return Math.ceil((this.health / starterShip.maxHealth) * 100);
   }
 
   public get x(): number {
@@ -173,6 +183,11 @@ export class Player {
       this.sprite.x + Math.cos(this.facingAngle) * starterShip.muzzleOffsetPx,
       this.sprite.y + Math.sin(this.facingAngle) * starterShip.muzzleOffsetPx,
     );
+  }
+
+  private syncHealthBar(): void {
+    this.healthBar.positionAbove(this.sprite.x, this.sprite.y - this.sprite.displayHeight * 0.5);
+    this.healthBar.setRatio(this.health / starterShip.maxHealth);
   }
 
   private syncEngineFlame(): void {

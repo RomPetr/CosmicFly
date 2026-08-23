@@ -16,6 +16,7 @@ export type EnemyWeaponDef = {
   readonly id: EnemyWeaponId;
   readonly textureKey: TextureKey;
   readonly soundKey: SoundKey;
+  /** Player health percentage points removed per hit. */
   readonly damage: number;
   readonly projectileSpeed: number;
   readonly lifetimeMs: number;
@@ -44,7 +45,7 @@ export const middleEnemyBlaster: EnemyWeaponDef = {
   id: EnemyWeaponIds.MiddleEnemyBlaster,
   textureKey: TextureKeys.EnemyBolt,
   soundKey: SoundKeys.MiddleEnemyBlaster,
-  damage: 1,
+  damage: 3,
   projectileSpeed: 230,
   lifetimeMs: 3000,
   aimSpreadRadians: 0.06,
