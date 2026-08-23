@@ -3,8 +3,12 @@ import { TextureKeys, type TextureKey } from '../config/assetKeys';
 import type { MeteorDef } from '../data/meteors';
 import { MeteorSurfaceLighting } from '../effects/MeteorSurfaceLighting';
 
+const SPRITE_DEPTH = 1;
+const OUTLINE_DEPTH_OFFSET = -0.1;
+
 export class Meteor extends Phaser.Physics.Arcade.Sprite {
   private readonly surfaceLighting: MeteorSurfaceLighting;
+  private readonly outline: Phaser.GameObjects.Image;
   private hull: number;
   private contactDamage: number;
   private ownSpeed: number;
@@ -17,6 +21,10 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.surfaceLighting = new MeteorSurfaceLighting(scene);
+    this.outline = scene.add.image(x, y, TextureKeys.AshChunkA);
+    this.outline.setOrigin(0.5, 0.5);
+    this.outline.setDepth(SPRITE_DEPTH + OUTLINE_DEPTH_OFFSET);
+    this.outline.setVisible(false);
     this.hull = 0;
     this.contactDamage = 0;
     this.ownSpeed = 0;
@@ -43,7 +51,7 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     this.setTexture(textureKey);
     this.setScale(scale);
     this.setTint(def.tint);
-    this.setDepth(1);
+    this.setDepth(SPRITE_DEPTH);
     this.enableBody(true, x, y, true, true);
 
     const body = this.body;
@@ -61,6 +69,13 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     body.setBounce(0);
     body.setVelocity(0, this.ownSpeed);
     body.setAngularVelocity(angularVelocity);
+
+    this.outline.setTexture(textureKey);
+    this.outline.setScale(scale * def.outlineScaleFactor);
+    this.outline.setTint(def.outlineTint);
+    this.outline.setAlpha(def.outlineAlpha);
+    this.outline.setVisible(true);
+    this.syncOutline();
     this.surfaceLighting.activate(this.x, this.y, this.displayWidth, this.displayHeight, this.depth);
   }
 
@@ -80,6 +95,7 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
+    this.syncOutline();
     this.surfaceLighting.update(delta, this.x, this.y);
   }
 
@@ -106,8 +122,14 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
       body.stop();
     }
 
+    this.outline.setVisible(false);
     this.surfaceLighting.deactivate();
     this.disableBody(true, true);
+  }
+
+  private syncOutline(): void {
+    this.outline.setPosition(this.x, this.y);
+    this.outline.setRotation(this.rotation);
   }
 
   private pickTexture(textureKeys: readonly TextureKey[]): TextureKey {

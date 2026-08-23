@@ -1,39 +1,99 @@
 import Phaser from 'phaser';
 
-const HIGHLIGHT_COLOR = 0xd8c6aa;
-const SHADOW_COLOR = 0x241f1c;
-const HIGHLIGHT_WIDTH_RATIO = 0.26;
-const HIGHLIGHT_HEIGHT_RATIO = 0.18;
-const SHADOW_WIDTH_RATIO = 0.4;
-const SHADOW_HEIGHT_RATIO = 0.3;
-const ORBIT_X_RATIO = 0.16;
-const ORBIT_Y_RATIO = 0.12;
+type LightingLayerConfig = {
+  readonly color: number;
+  readonly widthRatio: number;
+  readonly heightRatio: number;
+  /** Orbit radius multiplier relative to the shared orbit. */
+  readonly orbitScale: number;
+  readonly baseAlpha: number;
+  readonly alphaPulse: number;
+  readonly depthOffset: number;
+  readonly additive: boolean;
+  /** `1` keeps the layer on the lit side, `-1` on the shadowed side. */
+  readonly side: 1 | -1;
+};
+
+type LightingLayer = {
+  readonly config: LightingLayerConfig;
+  readonly ellipse: Phaser.GameObjects.Ellipse;
+};
+
+/**
+ * Ratios are relative to the meteor silhouette diameter. The rock covers about
+ * 0.36 of it around the centre, so `orbitRatio * orbitScale + sizeRatio / 2`
+ * must stay under that value to keep every layer inside the silhouette.
+ */
+const ORBIT_X_RATIO = 0.12;
+const ORBIT_Y_RATIO = 0.09;
 const MIN_ORBIT_SPEED = 0.9;
 const MAX_ORBIT_SPEED = 1.7;
-const HIGHLIGHT_BASE_ALPHA = 0.25;
-const HIGHLIGHT_ALPHA_PULSE = 0.04;
-const SHADOW_BASE_ALPHA = 0.28;
-const SHADOW_ALPHA_PULSE = 0.04;
+const LAYER_SPIN_FACTOR = 0.25;
+const ALPHA_PULSE_FREQUENCY = 2;
+
+const SHADOW_LAYER: LightingLayerConfig = {
+  color: 0x17110d,
+  widthRatio: 0.44,
+  heightRatio: 0.36,
+  orbitScale: 1,
+  baseAlpha: 0.44,
+  alphaPulse: 0.05,
+  depthOffset: 0.1,
+  additive: false,
+  side: -1,
+};
+
+const TERMINATOR_LAYER: LightingLayerConfig = {
+  color: 0xd8c6aa,
+  widthRatio: 0.34,
+  heightRatio: 0.26,
+  orbitScale: 1,
+  baseAlpha: 0.3,
+  alphaPulse: 0.05,
+  depthOffset: 0.2,
+  additive: true,
+  side: 1,
+};
+
+const SPECULAR_LAYER: LightingLayerConfig = {
+  color: 0xfff2d8,
+  widthRatio: 0.14,
+  heightRatio: 0.1,
+  orbitScale: 1.5,
+  baseAlpha: 0.4,
+  alphaPulse: 0.06,
+  depthOffset: 0.3,
+  additive: true,
+  side: 1,
+};
+
+const LAYER_CONFIGS: readonly LightingLayerConfig[] = [
+  SHADOW_LAYER,
+  TERMINATOR_LAYER,
+  SPECULAR_LAYER,
+];
 
 export class MeteorSurfaceLighting {
-  private readonly highlight: Phaser.GameObjects.Ellipse;
-  private readonly shadow: Phaser.GameObjects.Ellipse;
+  private readonly layers: readonly LightingLayer[];
   private phase: number;
   private orbitSpeed: number;
   private orbitX: number;
   private orbitY: number;
 
   public constructor(scene: Phaser.Scene) {
-    this.shadow = scene.add.ellipse(0, 0, 1, 1, SHADOW_COLOR, SHADOW_BASE_ALPHA);
-    this.highlight = scene.add.ellipse(0, 0, 1, 1, HIGHLIGHT_COLOR, HIGHLIGHT_BASE_ALPHA);
+    this.layers = LAYER_CONFIGS.map((config) => {
+      const ellipse = scene.add.ellipse(0, 0, 1, 1, config.color, config.baseAlpha);
+      ellipse.setVisible(false);
+      if (config.additive) {
+        ellipse.setBlendMode(Phaser.BlendModes.ADD);
+      }
+      return { config, ellipse };
+    });
+
     this.phase = 0;
     this.orbitSpeed = 0;
     this.orbitX = 0;
     this.orbitY = 0;
-
-    this.shadow.setVisible(false);
-    this.highlight.setVisible(false);
-    this.highlight.setBlendMode(Phaser.BlendModes.ADD);
   }
 
   public activate(
@@ -51,37 +111,34 @@ export class MeteorSurfaceLighting {
     this.orbitX = diameter * ORBIT_X_RATIO;
     this.orbitY = diameter * ORBIT_Y_RATIO;
 
-    this.highlight.setDisplaySize(
-      diameter * HIGHLIGHT_WIDTH_RATIO,
-      diameter * HIGHLIGHT_HEIGHT_RATIO,
-    );
-    this.shadow.setDisplaySize(diameter * SHADOW_WIDTH_RATIO, diameter * SHADOW_HEIGHT_RATIO);
-    this.shadow.setDepth(spriteDepth + 0.1);
-    this.highlight.setDepth(spriteDepth + 0.2);
-    this.shadow.setVisible(true);
-    this.highlight.setVisible(true);
+    for (const { config, ellipse } of this.layers) {
+      ellipse.setDisplaySize(diameter * config.widthRatio, diameter * config.heightRatio);
+      ellipse.setDepth(spriteDepth + config.depthOffset);
+      ellipse.setVisible(true);
+    }
+
     this.update(0, x, y);
   }
 
   public update(delta: number, x: number, y: number): void {
     this.phase += this.orbitSpeed * (delta / 1000);
 
-    const orbitCos = Math.cos(this.phase);
-    const orbitSin = Math.sin(this.phase);
-    const pulse = Math.sin(this.phase * 2);
-    const offsetX = orbitCos * this.orbitX;
-    const offsetY = orbitSin * this.orbitY;
+    const offsetX = Math.cos(this.phase) * this.orbitX;
+    const offsetY = Math.sin(this.phase) * this.orbitY;
+    const pulse = Math.sin(this.phase * ALPHA_PULSE_FREQUENCY);
+    const rotation = this.phase * LAYER_SPIN_FACTOR;
 
-    this.highlight.setPosition(x + offsetX, y + offsetY);
-    this.shadow.setPosition(x - offsetX, y - offsetY);
-    this.highlight.setRotation(this.phase * 0.25);
-    this.shadow.setRotation(this.phase * 0.25);
-    this.highlight.setAlpha(HIGHLIGHT_BASE_ALPHA + pulse * HIGHLIGHT_ALPHA_PULSE);
-    this.shadow.setAlpha(SHADOW_BASE_ALPHA - pulse * SHADOW_ALPHA_PULSE);
+    for (const { config, ellipse } of this.layers) {
+      const shift = config.side * config.orbitScale;
+      ellipse.setPosition(x + offsetX * shift, y + offsetY * shift);
+      ellipse.setRotation(rotation);
+      ellipse.setAlpha(config.baseAlpha + pulse * config.alphaPulse * config.side);
+    }
   }
 
   public deactivate(): void {
-    this.highlight.setVisible(false);
-    this.shadow.setVisible(false);
+    for (const { ellipse } of this.layers) {
+      ellipse.setVisible(false);
+    }
   }
 }

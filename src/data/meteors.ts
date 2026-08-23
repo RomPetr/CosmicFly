@@ -22,6 +22,11 @@ export type MeteorDef = {
   readonly scaleMin: number;
   readonly scaleMax: number;
   readonly tint: number;
+  /** Dark silhouette drawn behind the meteor sprite. */
+  readonly outlineTint: number;
+  /** Outline sprite scale relative to the meteor scale. */
+  readonly outlineScaleFactor: number;
+  readonly outlineAlpha: number;
   readonly spawnMarginPx: number;
   readonly recycleMarginPx: number;
   readonly safeRadius: number;
@@ -41,9 +46,12 @@ export const ashChunkMeteor: MeteorDef = {
   spinMin: 25,
   spinMax: 90,
   colliderRadius: 78,
-  scaleMin: 0.1,
-  scaleMax: 0.16,
-  tint: 0x8a7a68,
+  scaleMin: 0.14,
+  scaleMax: 0.22,
+  tint: 0x9c8b76,
+  outlineTint: 0x1a1512,
+  outlineScaleFactor: 1.08,
+  outlineAlpha: 0.9,
   spawnMarginPx: 48,
   recycleMarginPx: 64,
   safeRadius: 110,
