@@ -17,6 +17,7 @@ export const TextureKeys = {
   FlareMissile: 'flare-missile',
   StarfieldFar: 'starfield-far',
   StarfieldNear: 'starfield-near',
+  TwinkleStar: 'twinkle-star',
   AshChunkA: 'ash-chunk-a',
   AshChunkB: 'ash-chunk-b',
   EngineFlame: 'engine-flame',

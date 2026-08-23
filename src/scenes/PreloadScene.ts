@@ -9,6 +9,7 @@ import {
   TexturePaths,
   type TextureKey,
 } from '../config/assetKeys';
+import { starfieldConfig, type StarLayerConfig } from '../data/starfield';
 
 const PROGRESS_BAR_WIDTH = 320;
 const PROGRESS_BAR_HEIGHT = 18;
@@ -151,34 +152,59 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private createStarfieldTextures(): void {
-    this.createStarfieldTexture(TextureKeys.StarfieldFar, 256, 52, 1.1, 0xc8d4ea, 0.5);
-    this.createStarfieldTexture(TextureKeys.StarfieldNear, 256, 20, 1.7, 0xf4f7fb, 0.92);
+    this.createStarfieldTexture(TextureKeys.StarfieldFar, starfieldConfig.farLayer);
+    this.createStarfieldTexture(TextureKeys.StarfieldNear, starfieldConfig.nearLayer);
+    this.createTwinkleStarTexture();
   }
 
-  private createStarfieldTexture(
-    key: TextureKey,
-    size: number,
-    starCount: number,
-    radius: number,
-    color: number,
-    alpha: number,
-  ): void {
+  private createStarfieldTexture(key: TextureKey, layer: StarLayerConfig): void {
     if (this.textures.exists(key)) {
       return;
     }
 
+    const { palette } = starfieldConfig;
+    const size = layer.textureSize;
     const graphics = this.make.graphics({}, false);
 
-    for (let index = 0; index < starCount; index += 1) {
+    for (let index = 0; index < layer.starCount; index += 1) {
       const x = Phaser.Math.Between(2, size - 3);
       const y = Phaser.Math.Between(2, size - 3);
-      const starRadius = Phaser.Math.FloatBetween(radius * 0.45, radius);
-      const starAlpha = Phaser.Math.FloatBetween(alpha * 0.4, alpha);
+      const color = palette[Phaser.Math.Between(0, palette.length - 1)] ?? palette[0];
+      const starRadius = Phaser.Math.FloatBetween(
+        layer.maxRadius * layer.minRadiusRatio,
+        layer.maxRadius,
+      );
+      const starAlpha = Phaser.Math.FloatBetween(
+        layer.maxAlpha * layer.minAlphaRatio,
+        layer.maxAlpha,
+      );
       graphics.fillStyle(color, starAlpha);
       graphics.fillCircle(x, y, starRadius);
     }
 
     graphics.generateTexture(key, size, size);
+    graphics.destroy();
+  }
+
+  private createTwinkleStarTexture(): void {
+    if (this.textures.exists(TextureKeys.TwinkleStar)) {
+      return;
+    }
+
+    const { textureSize, glowRings, glowCoreAlpha, glowEdgeAlpha } = starfieldConfig.twinkle;
+    const center = textureSize / 2;
+    const maxRadius = center - 1;
+    const graphics = this.make.graphics({}, false);
+
+    // Drawn white so that per-star setTint() can recolour the same texture.
+    for (let ring = glowRings; ring >= 1; ring -= 1) {
+      const ratio = ring / glowRings;
+      const alpha = glowEdgeAlpha + (glowCoreAlpha - glowEdgeAlpha) * (1 - ratio);
+      graphics.fillStyle(0xffffff, alpha);
+      graphics.fillCircle(center, center, maxRadius * ratio);
+    }
+
+    graphics.generateTexture(TextureKeys.TwinkleStar, textureSize, textureSize);
     graphics.destroy();
   }
 }
