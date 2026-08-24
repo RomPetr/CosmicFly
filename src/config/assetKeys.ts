@@ -22,6 +22,7 @@ export const TextureKeys = {
   AshChunkB: 'ash-chunk-b',
   EngineFlame: 'engine-flame',
   Explosion: 'explosion',
+  CrystalGem: 'crystal-gem',
 } as const;
 
 export type TextureKey = (typeof TextureKeys)[keyof typeof TextureKeys];

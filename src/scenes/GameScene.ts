@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SceneKeys, SoundKeys } from '../config/assetKeys';
+import { bases } from '../data/bases';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
 import { Player, type PlayerHitResult } from '../entities/Player';
@@ -8,16 +9,30 @@ import { ExplosionEffect } from '../effects/ExplosionEffect';
 import { MeteorDebrisBurst } from '../effects/MeteorDebrisBurst';
 import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
+import { WalletManager } from '../managers/WalletManager';
+import { gameProgress } from '../state/GameProgress';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
 import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { StarfieldSystem } from '../systems/StarfieldSystem';
 import { WeaponSystem } from '../systems/WeaponSystem';
+import {
+  CrystalCounter,
+  emeraldCounterStyle,
+  rubyCounterStyle,
+} from '../ui/CrystalCounter';
 
 const DEATH_TO_GAME_OVER_MS = 1500;
 const DEATH_SHAKE_MS = 280;
 const DEATH_SHAKE_INTENSITY = 0.009;
+const HUD_TOP_ROW_Y = 20;
+const HUD_RIGHT_MARGIN_PX = 12;
+const HUD_COUNTER_SPACING_PX = 24;
+
+export type GameSceneStartData = {
+  readonly startKm?: number;
+};
 
 export class GameScene extends Phaser.Scene {
   private audioManager!: AudioManager;
@@ -34,16 +49,27 @@ export class GameScene extends Phaser.Scene {
   private playerDebrisBurst!: DebrisBurst;
   private playerExplosion!: ExplosionEffect;
   private hudText!: Phaser.GameObjects.Text;
+  private emeraldCounter!: CrystalCounter;
+  private rubyCounter!: CrystalCounter;
+  private endFlight!: Phaser.GameObjects.Text;
+  private wallet!: WalletManager;
   private transitioning = false;
   private destroyingPlayer = false;
+  private startKm = 0;
+  private recordedCheckpoints = new Set<number>();
 
   public constructor() {
     super({ key: SceneKeys.Game });
   }
 
+  public init(data?: GameSceneStartData): void {
+    this.startKm = Math.max(0, data?.startKm ?? 0);
+  }
+
   public create(): void {
     this.transitioning = false;
     this.destroyingPlayer = false;
+    this.recordedCheckpoints = new Set<number>();
 
     const { width, height } = this.scale;
 
@@ -55,7 +81,10 @@ export class GameScene extends Phaser.Scene {
 
     this.audioManager = new AudioManager(this);
     this.inputManager = new InputManager(this);
-    this.starfieldSystem = new StarfieldSystem(this);
+    const startingWallet =
+      this.startKm > 0 ? gameProgress.getCheckpointWallet(this.startKm) : { emeralds: 0, rubies: 0 };
+    this.wallet = new WalletManager(startingWallet);
+    this.starfieldSystem = new StarfieldSystem(this, this.startKm);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
@@ -102,8 +131,8 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setDepth(1000);
 
-    const endFlight = this.add
-      .text(width - 12, 10, 'End flight', {
+    this.endFlight = this.add
+      .text(width - HUD_RIGHT_MARGIN_PX, 10, 'End flight', {
         fontFamily: 'sans-serif',
         fontSize: '18px',
         color: '#7fd4ff',
@@ -112,7 +141,11 @@ export class GameScene extends Phaser.Scene {
       .setDepth(1000)
       .setInteractive({ useHandCursor: true });
 
-    endFlight.on('pointerdown', this.goToGameOver, this);
+    this.endFlight.on('pointerdown', this.goToGameOver, this);
+
+    this.emeraldCounter = new CrystalCounter(this, emeraldCounterStyle);
+    this.rubyCounter = new CrystalCounter(this, rubyCounterStyle);
+    this.syncCrystalCounters();
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
     this.events.on(Phaser.Scenes.Events.PAUSE, this.deactivateEngineThrust, this);
     this.sys.game.events.on(Phaser.Core.Events.BLUR, this.deactivateEngineThrust, this);
@@ -148,10 +181,42 @@ export class GameScene extends Phaser.Scene {
     this.enemyWeaponSystem.update(delta);
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
+    this.emeraldCounter.update(delta);
+    this.rubyCounter.update(delta);
+    this.recordCheckpointsIfNeeded();
     this.syncHud();
   }
 
+  private recordCheckpointsIfNeeded(): void {
+    const currentKm = this.starfieldSystem.getDistanceKm();
+    for (const base of bases) {
+      if (this.recordedCheckpoints.has(base.unlockAtKm)) {
+        continue;
+      }
+      if (currentKm >= base.unlockAtKm) {
+        this.recordedCheckpoints.add(base.unlockAtKm);
+        gameProgress.recordCheckpoint(base.unlockAtKm, this.wallet.getSnapshot());
+      }
+    }
+  }
+
+  private syncCrystalCounters(): void {
+    this.rubyCounter.setValue(this.wallet.getRubies());
+    this.rubyCounter.setPosition(
+      this.scale.width - HUD_RIGHT_MARGIN_PX,
+      HUD_TOP_ROW_Y + this.endFlight.height + HUD_COUNTER_SPACING_PX,
+    );
+
+    const rubyLeft = this.rubyCounter.getIconLeftX();
+    this.emeraldCounter.setValue(this.wallet.getEmeralds());
+    this.emeraldCounter.setPosition(
+      rubyLeft - HUD_COUNTER_SPACING_PX,
+      HUD_TOP_ROW_Y + this.endFlight.height + HUD_COUNTER_SPACING_PX,
+    );
+  }
+
   private handleEnemyKilled = (enemy: Enemy): void => {
+    this.wallet.awardForKilledEnemy(enemy.getEnemyId());
     this.spawnSystem.onEnemyKilled(enemy);
     this.debrisBurst.spawn(enemy.x, enemy.y);
     enemy.deactivate();
@@ -205,6 +270,7 @@ export class GameScene extends Phaser.Scene {
   private syncHud(): void {
     const distanceKm = Math.floor(this.starfieldSystem.getDistanceKm());
     this.hudText.setText(`Health ${this.player.getHealthPercent()}%  ${distanceKm} km`);
+    this.syncCrystalCounters();
   }
 
   private onShutdown(): void {

@@ -26,9 +26,9 @@ export class StarfieldSystem {
   private distancePx: number;
   private enabled: boolean;
 
-  public constructor(scene: Phaser.Scene) {
+  public constructor(scene: Phaser.Scene, initialDistanceKm = 0) {
     this.currentScrollPxPerSec = flightConfig.baseScrollPxPerSec;
-    this.distancePx = 0;
+    this.distancePx = Math.max(0, initialDistanceKm) / flightConfig.kmPerPx;
     this.enabled = true;
     this.scene = scene;
 
