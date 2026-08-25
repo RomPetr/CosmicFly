@@ -7,11 +7,13 @@ export class InputManager {
   private readonly keyA: Phaser.Input.Keyboard.Key;
   private readonly keyS: Phaser.Input.Keyboard.Key;
   private readonly keyD: Phaser.Input.Keyboard.Key;
+  private readonly keyE: Phaser.Input.Keyboard.Key;
   private readonly moveVector: Phaser.Math.Vector2;
   private readonly aimPosition: Phaser.Math.Vector2;
   private pulseFiring: boolean;
   private missileFiring: boolean;
   private wThrustActive: boolean;
+  private reverseThrustActive: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -20,6 +22,7 @@ export class InputManager {
     this.pulseFiring = false;
     this.missileFiring = false;
     this.wThrustActive = false;
+    this.reverseThrustActive = false;
 
     const keyboard = scene.input.keyboard;
     if (keyboard === null) {
@@ -31,6 +34,7 @@ export class InputManager {
     this.keyA = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.keyS = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
     this.keyD = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
+    this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
   }
 
   public update(): void {
@@ -39,6 +43,7 @@ export class InputManager {
       this.pulseFiring = false;
       this.missileFiring = false;
       this.wThrustActive = false;
+      this.reverseThrustActive = false;
       return;
     }
 
@@ -66,6 +71,7 @@ export class InputManager {
       this.moveVector.normalize();
     }
     this.wThrustActive = this.keyW.isDown && this.moveVector.y < 0;
+    this.reverseThrustActive = this.keyS.isDown && this.moveVector.y > 0;
 
     const pointer = this.scene.input.activePointer;
     pointer.updateWorldPoint(this.scene.cameras.main);
@@ -93,6 +99,18 @@ export class InputManager {
 
   public isWThrustActive(): boolean {
     return this.wThrustActive;
+  }
+
+  public isReverseThrustActive(): boolean {
+    return this.reverseThrustActive;
+  }
+
+  public consumeBlinkPress(): boolean {
+    if (!this.isWindowFocused()) {
+      return false;
+    }
+
+    return Phaser.Input.Keyboard.JustDown(this.keyE);
   }
 
   public isMovementKeyDown(): boolean {

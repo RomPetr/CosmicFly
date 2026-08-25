@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
 import { TextureKeys } from '../config/assetKeys';
+import { flightConfig } from '../data/flight';
 import { introConfig } from '../data/intro';
 import { starterShip } from '../data/ships';
 import type { AudioManager } from '../managers/AudioManager';
+
+/** Sprite art points south; this rotation puts the nose on screen-north. */
+const NOSE_NORTH_ROTATION = starterShip.angleOffset + flightConfig.northAngleRad;
 
 const TAU = Math.PI * 2;
 
@@ -78,7 +82,7 @@ export class IntroSequence {
       .image(centerX, height * introConfig.ship.dockedYRatio, starterShip.textureKey)
       .setOrigin(0.5, 0.5)
       .setScale(introScale)
-      .setRotation(0)
+      .setRotation(NOSE_NORTH_ROTATION)
       .setDepth(introConfig.ship.hiddenDepth);
 
     this.phase = IntroPhases.Hold;
@@ -169,6 +173,7 @@ export class IntroSequence {
       this.station?.setScale(station.dockedScale);
       this.ship?.setPosition(centerX, height * ship.dockedYRatio);
       this.ship?.setScale(introScale);
+      this.ship?.setRotation(NOSE_NORTH_ROTATION);
       return;
     }
 
@@ -183,6 +188,7 @@ export class IntroSequence {
         Phaser.Math.Linear(height * ship.dockedYRatio, height * ship.clearedYRatio, eased),
       );
       this.ship?.setScale(introScale);
+      this.ship?.setRotation(NOSE_NORTH_ROTATION);
       return;
     }
 
@@ -203,12 +209,14 @@ export class IntroSequence {
         Phaser.Math.Linear(height * ship.clearedYRatio, height * ship.settledYRatio, glide),
       );
       this.ship?.setScale(Phaser.Math.Linear(introScale, starterShip.scale, grow));
+      this.ship?.setRotation(NOSE_NORTH_ROTATION);
       return;
     }
 
     if (this.phase === IntroPhases.AwaitInput) {
       this.ship?.setPosition(centerX, height * ship.settledYRatio);
       this.ship?.setScale(starterShip.scale);
+      this.ship?.setRotation(NOSE_NORTH_ROTATION);
     }
   }
 

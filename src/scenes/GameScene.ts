@@ -5,6 +5,7 @@ import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
 import { Player, type PlayerHitResult } from '../entities/Player';
 import { DebrisBurst, playerDebrisConfig } from '../effects/DebrisBurst';
+import { BlinkTrail } from '../effects/BlinkTrail';
 import { ExplosionEffect } from '../effects/ExplosionEffect';
 import { MeteorDebrisBurst } from '../effects/MeteorDebrisBurst';
 import { AudioManager } from '../managers/AudioManager';
@@ -49,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   private meteorDebrisBurst!: MeteorDebrisBurst;
   private playerDebrisBurst!: DebrisBurst;
   private playerExplosion!: ExplosionEffect;
+  private blinkTrail!: BlinkTrail;
   private intro!: IntroSequence;
   private hudText!: Phaser.GameObjects.Text;
   private emeraldCounter!: CrystalCounter;
@@ -102,6 +104,7 @@ export class GameScene extends Phaser.Scene {
     this.meteorDebrisBurst = new MeteorDebrisBurst(this);
     this.playerDebrisBurst = new DebrisBurst(this, playerDebrisConfig);
     this.playerExplosion = new ExplosionEffect(this);
+    this.blinkTrail = new BlinkTrail(this);
     this.collisionSystem = new CollisionSystem(
       this,
       this.weaponSystem.getProjectiles(),
@@ -182,9 +185,18 @@ export class GameScene extends Phaser.Scene {
 
     this.inputManager.update();
     const wThrustActive = this.inputManager.isWThrustActive();
+    const reverseThrustActive = this.inputManager.isReverseThrustActive();
     this.player.setEngineThrustActive(wThrustActive);
-    this.audioManager.updateThrust(wThrustActive);
+    this.player.setReverseThrustActive(reverseThrustActive);
+    this.audioManager.updateThrust(wThrustActive || reverseThrustActive);
     this.player.update();
+    if (this.inputManager.consumeBlinkPress()) {
+      const hop = this.player.tryBlink();
+      if (hop !== null) {
+        this.blinkTrail.spawn(hop);
+        this.audioManager.playSfx(SoundKeys.ShipBlink);
+      }
+    }
     this.starfieldSystem.update(
       delta,
       this.inputManager.getMoveVector().y,
@@ -196,6 +208,7 @@ export class GameScene extends Phaser.Scene {
     this.enemyWeaponSystem.update(delta);
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
+    this.blinkTrail.update(delta);
     this.emeraldCounter.update(delta);
     this.rubyCounter.update(delta);
     this.recordCheckpointsIfNeeded();
@@ -325,10 +338,12 @@ export class GameScene extends Phaser.Scene {
     this.spawnSystem.resetForShutdown();
     this.starfieldSystem.stop();
     this.intro.stop();
+    this.blinkTrail.stop();
   }
 
   private deactivateEngineThrust(): void {
     this.player.setEngineThrustActive(false);
+    this.player.setReverseThrustActive(false);
     this.audioManager.updateThrust(false);
   }
 
@@ -367,6 +382,7 @@ export class GameScene extends Phaser.Scene {
     this.meteorDebrisBurst.stop();
     this.playerDebrisBurst.stop();
     this.playerExplosion.stop();
+    this.blinkTrail.stop();
     this.scene.start(SceneKeys.GameOver);
   }
 }

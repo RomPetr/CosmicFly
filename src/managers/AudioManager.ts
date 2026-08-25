@@ -8,6 +8,7 @@ const VOLUME_MIDDLE_ENEMY_BLASTER = 0.42;
 const VOLUME_PLAYER_HIT = 0.5;
 const VOLUME_PLAYER_EXPLOSION = 0.85;
 const VOLUME_SHIP_LAUNCH = 0.55;
+const VOLUME_SHIP_BLINK = 0.62;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
 
@@ -189,6 +190,10 @@ export class AudioManager {
 
     if (key === SoundKeys.PlayerExplosion) {
       return VOLUME_PLAYER_EXPLOSION;
+    }
+
+    if (key === SoundKeys.ShipBlink) {
+      return VOLUME_SHIP_BLINK;
     }
 
     return VOLUME_PULSE;

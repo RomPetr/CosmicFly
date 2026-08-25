@@ -61,7 +61,8 @@ Obtained:
 - 2026-08-19 — player and enemy audio;
 - 2026-08-22 — engine audio and Middle Enemy blaster;
 - 2026-08-23 — player explosion;
-- 2026-08-24 — ship launch.
+- 2026-08-24 — ship launch;
+- 2026-08-25 — ship blink.
 
 Used files:
 - `public/assets/audio/player/blaster_shoot.ogg` — from `laserSmall_002`;
@@ -74,6 +75,7 @@ Used files:
 - `public/assets/audio/engine/engine_large.ogg` — from `spaceEngineLarge_001.ogg`;
 - `public/assets/audio/player/player_explosion.ogg` — from `explosionCrunch_004.ogg`, player ship destruction.
 - `public/assets/audio/player/ship_launch.ogg` — from `thrusterFire_000.ogg`, 5-second launch burn in the intro cutscene.
+- `public/assets/audio/player/ship_blink.ogg` — from `forceField_000.ogg`, short whoosh for the E-key phase hop.
 
 ## Cuzco — Explosion
 
