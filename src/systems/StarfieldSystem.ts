@@ -25,11 +25,13 @@ export class StarfieldSystem {
   private currentScrollPxPerSec: number;
   private distancePx: number;
   private enabled: boolean;
+  private scrollEnabled: boolean;
 
   public constructor(scene: Phaser.Scene, initialDistanceKm = 0) {
     this.currentScrollPxPerSec = flightConfig.baseScrollPxPerSec;
     this.distancePx = Math.max(0, initialDistanceKm) / flightConfig.kmPerPx;
     this.enabled = true;
+    this.scrollEnabled = true;
     this.scene = scene;
 
     const { width, height } = scene.scale;
@@ -72,6 +74,14 @@ export class StarfieldSystem {
     }
 
     const dt = delta / 1000;
+
+    if (!this.scrollEnabled) {
+      // Frozen backdrop: stars still twinkle, but nothing drifts and no distance accrues.
+      this.currentScrollPxPerSec = 0;
+      this.updateTwinkleStars(dt, 0);
+      return;
+    }
+
     const target = this.computeTargetScrollSpeed(moveY, facingAngle);
     const lerpAlpha = 1 - Math.exp(-flightConfig.scrollLerpPerSec * dt);
     this.currentScrollPxPerSec += (target - this.currentScrollPxPerSec) * lerpAlpha;
@@ -85,6 +95,10 @@ export class StarfieldSystem {
     this.nearLayer.tilePositionY -= scrollDelta;
 
     this.updateTwinkleStars(dt, scrollDelta);
+  }
+
+  public setScrollEnabled(enabled: boolean): void {
+    this.scrollEnabled = enabled;
   }
 
   public getScrollSpeed(): number {

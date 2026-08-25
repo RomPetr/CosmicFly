@@ -142,6 +142,29 @@ export class Player {
     return { applied: true, killed: this.health <= 0 };
   }
 
+  /** Hides the ship and disables its body; re-enabling resets the body in place. */
+  public setDormant(dormant: boolean): void {
+    const body = this.sprite.body;
+    if (body instanceof Phaser.Physics.Arcade.Body) {
+      if (dormant) {
+        this.sprite.setAcceleration(0, 0);
+        body.stop();
+        body.enable = false;
+      } else {
+        body.reset(this.sprite.x, this.sprite.y);
+        body.enable = true;
+      }
+    }
+
+    this.sprite.setVisible(!dormant);
+    this.healthBar.setVisible(!dormant);
+    if (dormant) {
+      this.engineFlame.setVisible(false);
+    } else {
+      this.syncHealthBar();
+    }
+  }
+
   public hideForDestruction(): void {
     this.sprite.setVisible(false);
     this.engineFlame.setVisible(false);

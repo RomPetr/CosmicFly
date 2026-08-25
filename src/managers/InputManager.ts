@@ -95,6 +95,23 @@ export class InputManager {
     return this.wThrustActive;
   }
 
+  public isMovementKeyDown(): boolean {
+    if (!this.isWindowFocused()) {
+      return false;
+    }
+
+    return (
+      this.keyW.isDown ||
+      this.keyA.isDown ||
+      this.keyS.isDown ||
+      this.keyD.isDown ||
+      this.cursors.up.isDown ||
+      this.cursors.down.isDown ||
+      this.cursors.left.isDown ||
+      this.cursors.right.isDown
+    );
+  }
+
   private isWindowFocused(): boolean {
     return document.visibilityState !== 'hidden' && document.hasFocus();
   }

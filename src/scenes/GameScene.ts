@@ -13,6 +13,7 @@ import { WalletManager } from '../managers/WalletManager';
 import { gameProgress } from '../state/GameProgress';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
+import { IntroSequence } from '../systems/IntroSequence';
 import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { StarfieldSystem } from '../systems/StarfieldSystem';
@@ -48,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private meteorDebrisBurst!: MeteorDebrisBurst;
   private playerDebrisBurst!: DebrisBurst;
   private playerExplosion!: ExplosionEffect;
+  private intro!: IntroSequence;
   private hudText!: Phaser.GameObjects.Text;
   private emeraldCounter!: CrystalCounter;
   private rubyCounter!: CrystalCounter;
@@ -86,6 +88,7 @@ export class GameScene extends Phaser.Scene {
     this.wallet = new WalletManager(startingWallet);
     this.starfieldSystem = new StarfieldSystem(this, this.startKm);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
+    this.intro = new IntroSequence(this, this.audioManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
     this.enemyWeaponSystem = new EnemyWeaponSystem(
@@ -110,8 +113,6 @@ export class GameScene extends Phaser.Scene {
       this.handleMeteorHit,
       this.handlePlayerHit,
     );
-    this.spawnSystem.start();
-    this.meteorSystem.start();
 
     this.add
       .text(12, 10, 'Flight in progress', {
@@ -152,6 +153,15 @@ export class GameScene extends Phaser.Scene {
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.onShutdown, this);
     this.audioManager.startFlight();
+
+    if (this.startKm === 0) {
+      this.player.setDormant(true);
+      this.starfieldSystem.setScrollEnabled(false);
+      this.intro.start();
+    } else {
+      this.startGameplaySystems();
+    }
+
     this.syncHud();
   }
 
@@ -162,6 +172,11 @@ export class GameScene extends Phaser.Scene {
 
     if (this.destroyingPlayer) {
       this.updateDestructionScene(delta);
+      return;
+    }
+
+    if (this.intro.isActive()) {
+      this.updateIntro(delta);
       return;
     }
 
@@ -185,6 +200,32 @@ export class GameScene extends Phaser.Scene {
     this.rubyCounter.update(delta);
     this.recordCheckpointsIfNeeded();
     this.syncHud();
+  }
+
+  private updateIntro(delta: number): void {
+    this.intro.update(delta);
+
+    if (this.intro.isAwaitingInput() && this.inputManager.isMovementKeyDown()) {
+      this.intro.stop();
+      this.finishIntro();
+    }
+
+    // Scroll is frozen, so this only keeps the background stars twinkling.
+    this.starfieldSystem.update(delta, 0, 0);
+    this.emeraldCounter.update(delta);
+    this.rubyCounter.update(delta);
+    this.syncHud();
+  }
+
+  private finishIntro(): void {
+    this.player.setDormant(false);
+    this.starfieldSystem.setScrollEnabled(true);
+    this.startGameplaySystems();
+  }
+
+  private startGameplaySystems(): void {
+    this.spawnSystem.start();
+    this.meteorSystem.start();
   }
 
   private recordCheckpointsIfNeeded(): void {
@@ -283,6 +324,7 @@ export class GameScene extends Phaser.Scene {
     this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
     this.spawnSystem.resetForShutdown();
     this.starfieldSystem.stop();
+    this.intro.stop();
   }
 
   private deactivateEngineThrust(): void {

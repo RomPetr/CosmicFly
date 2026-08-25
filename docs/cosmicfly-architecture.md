@@ -286,6 +286,17 @@ docs/assets.md
 
 Не меняет статы игрока.
 
+### IntroSequence
+
+Ответственность:
+
+- владеть спрайтом станции, отдельным визуалом взлетающего корабля и подсказкой;
+- проигрывать фазы Hold → Launch → Depart → AwaitInput;
+- вычислять позы как чистую функцию накопленного времени без твинов и таймеров;
+- перекрывать корабль станцией через depth-слои и альфа-канал спрайта станции.
+
+Не делает: не читает ввод, не касается `Player`, физики, спавнов, дистанции и HUD.
+
 ### UpgradeSystem
 
 Ответственность:
@@ -368,6 +379,22 @@ MenuScene → GameState.startRun() → GameScene.create()
   → SpawnSystem.start()
   → AudioManager.playMusic()
 ```
+
+Старт нового полёта (`startKm === 0`):
+
+```text
+MenuScene → GameScene.create()
+  → player.setDormant(true)
+  → starfieldSystem.setScrollEnabled(false)
+  → IntroSequence.start()
+  → (Hold / Launch / Depart / AwaitInput)
+  → movement key → IntroSequence.stop() → finishIntro()
+  → player.setDormant(false)
+  → starfieldSystem.setScrollEnabled(true)
+  → SpawnSystem.start() / MeteorSystem.start()
+```
+
+Старт с чекпоинта (`startKm > 0`) пропускает катсцену и сразу вызывает `SpawnSystem.start()` / `MeteorSystem.start()`.
 
 Кадр боя:
 

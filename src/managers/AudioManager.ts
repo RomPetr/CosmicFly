@@ -7,6 +7,7 @@ const VOLUME_ENEMY_BLASTER = 0.3;
 const VOLUME_MIDDLE_ENEMY_BLASTER = 0.42;
 const VOLUME_PLAYER_HIT = 0.5;
 const VOLUME_PLAYER_EXPLOSION = 0.85;
+const VOLUME_SHIP_LAUNCH = 0.55;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
 
@@ -16,6 +17,7 @@ export class AudioManager {
   private readonly scene: Phaser.Scene;
   private engineLowLoop: EngineLoop | null;
   private engineLargeLoop: EngineLoop | null;
+  private launchCue: EngineLoop | null;
   private flightActive: boolean;
   private loopsPrepared: boolean;
   private waitingForUnlock: boolean;
@@ -25,6 +27,7 @@ export class AudioManager {
     this.scene = scene;
     this.engineLowLoop = null;
     this.engineLargeLoop = null;
+    this.launchCue = null;
     this.flightActive = false;
     this.loopsPrepared = false;
     this.waitingForUnlock = false;
@@ -60,6 +63,26 @@ export class AudioManager {
     this.scene.sound.play(key, { volume: this.getSfxVolume(key) });
   }
 
+  public playLaunchCue(): void {
+    if (this.launchCue !== null) {
+      return;
+    }
+
+    if (!this.hasAudio(SoundKeys.ShipLaunch)) {
+      return;
+    }
+
+    this.launchCue = this.scene.sound.add(SoundKeys.ShipLaunch, {
+      volume: VOLUME_SHIP_LAUNCH,
+    });
+    this.launchCue.play();
+  }
+
+  public stopLaunchCue(): void {
+    this.destroyLoop(this.launchCue);
+    this.launchCue = null;
+  }
+
   public stopFlight(): void {
     this.thrusting = false;
     this.flightActive = false;
@@ -68,8 +91,10 @@ export class AudioManager {
     this.scene.sound.off(Phaser.Sound.Events.UNLOCKED, this.prepareEngineLoops, this);
     this.destroyLoop(this.engineLowLoop);
     this.destroyLoop(this.engineLargeLoop);
+    this.destroyLoop(this.launchCue);
     this.engineLowLoop = null;
     this.engineLargeLoop = null;
+    this.launchCue = null;
   }
 
   private prepareEngineLoops(): void {

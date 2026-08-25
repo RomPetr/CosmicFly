@@ -27,6 +27,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
     this.load.image(TextureKeys.EngineFlame, TexturePaths[TextureKeys.EngineFlame]);
+    this.load.image(TextureKeys.SpaceStation, TexturePaths[TextureKeys.SpaceStation]);
     this.load.spritesheet(TextureKeys.Explosion, TexturePaths[TextureKeys.Explosion], {
       frameWidth: ExplosionSheet.frameWidth,
       frameHeight: ExplosionSheet.frameHeight,
