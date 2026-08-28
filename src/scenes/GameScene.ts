@@ -8,12 +8,14 @@ import { DebrisBurst, playerDebrisConfig } from '../effects/DebrisBurst';
 import { BlinkTrail } from '../effects/BlinkTrail';
 import { ExplosionEffect } from '../effects/ExplosionEffect';
 import { MeteorDebrisBurst } from '../effects/MeteorDebrisBurst';
+import { ShieldAura } from '../effects/ShieldAura';
 import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
 import { WalletManager } from '../managers/WalletManager';
 import { gameProgress } from '../state/GameProgress';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
+import { GiftSystem } from '../systems/GiftSystem';
 import { IntroSequence } from '../systems/IntroSequence';
 import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
@@ -46,11 +48,13 @@ export class GameScene extends Phaser.Scene {
   private starfieldSystem!: StarfieldSystem;
   private meteorSystem!: MeteorSystem;
   private collisionSystem!: CollisionSystem;
+  private giftSystem!: GiftSystem;
   private debrisBurst!: DebrisBurst;
   private meteorDebrisBurst!: MeteorDebrisBurst;
   private playerDebrisBurst!: DebrisBurst;
   private playerExplosion!: ExplosionEffect;
   private blinkTrail!: BlinkTrail;
+  private shieldAura!: ShieldAura;
   private intro!: IntroSequence;
   private hudText!: Phaser.GameObjects.Text;
   private emeraldCounter!: CrystalCounter;
@@ -105,6 +109,8 @@ export class GameScene extends Phaser.Scene {
     this.playerDebrisBurst = new DebrisBurst(this, playerDebrisConfig);
     this.playerExplosion = new ExplosionEffect(this);
     this.blinkTrail = new BlinkTrail(this);
+    this.shieldAura = new ShieldAura(this, this.player);
+    this.giftSystem = new GiftSystem(this, this.player);
     this.collisionSystem = new CollisionSystem(
       this,
       this.weaponSystem.getProjectiles(),
@@ -206,6 +212,8 @@ export class GameScene extends Phaser.Scene {
     this.weaponSystem.update(delta);
     this.spawnSystem.update(delta, this.starfieldSystem.getDistanceKm());
     this.enemyWeaponSystem.update(delta);
+    this.giftSystem.update(delta);
+    this.shieldAura.update(delta);
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
     this.blinkTrail.update(delta);
@@ -239,6 +247,7 @@ export class GameScene extends Phaser.Scene {
   private startGameplaySystems(): void {
     this.spawnSystem.start();
     this.meteorSystem.start();
+    this.giftSystem.start();
   }
 
   private recordCheckpointsIfNeeded(): void {
@@ -272,6 +281,7 @@ export class GameScene extends Phaser.Scene {
   private handleEnemyKilled = (enemy: Enemy): void => {
     this.wallet.awardForKilledEnemy(enemy.getEnemyId());
     this.spawnSystem.onEnemyKilled(enemy);
+    this.giftSystem.onEnemyKilled(enemy);
     this.debrisBurst.spawn(enemy.x, enemy.y);
     enemy.deactivate();
   };
@@ -291,6 +301,11 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (result.absorbedByShield) {
+      this.shieldAura.flashHit();
+      return;
+    }
+
     this.audioManager.playSfx(SoundKeys.PlayerHit);
   };
 
@@ -303,6 +318,8 @@ export class GameScene extends Phaser.Scene {
     this.deactivateEngineThrust();
     this.input.enabled = false;
     this.collisionSystem.stop();
+    this.giftSystem.stop();
+    this.shieldAura.stop();
 
     const { x, y } = this.player;
     this.player.hideForDestruction();
@@ -323,7 +340,11 @@ export class GameScene extends Phaser.Scene {
 
   private syncHud(): void {
     const distanceKm = Math.floor(this.starfieldSystem.getDistanceKm());
-    this.hudText.setText(`Health ${this.player.getHealthPercent()}%  ${distanceKm} km`);
+    const health = `Health ${this.player.getHealthPercent()}%`;
+    const shield = this.player.hasShield()
+      ? `  Shield ${Math.ceil(this.player.getShieldRemainingMs() / 1000)}s`
+      : '';
+    this.hudText.setText(`${health}${shield}  ${distanceKm} km`);
     this.syncCrystalCounters();
   }
 
@@ -336,6 +357,8 @@ export class GameScene extends Phaser.Scene {
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     this.sys.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
     this.spawnSystem.resetForShutdown();
+    this.giftSystem.resetForShutdown();
+    this.shieldAura.stop();
     this.starfieldSystem.stop();
     this.intro.stop();
     this.blinkTrail.stop();
@@ -363,6 +386,8 @@ export class GameScene extends Phaser.Scene {
     this.input.enabled = false;
     this.physics.world.pause();
     this.collisionSystem.stop();
+    this.giftSystem.stop();
+    this.shieldAura.stop();
     this.sys.game.events.once(Phaser.Core.Events.POST_RENDER, this.onPostRenderLeave, this);
   }
 
@@ -376,6 +401,7 @@ export class GameScene extends Phaser.Scene {
     this.weaponSystem.stop();
     this.enemyWeaponSystem.stop();
     this.spawnSystem.stop();
+    this.giftSystem.stop();
     this.meteorSystem.stop();
     this.starfieldSystem.stop();
     this.debrisBurst.stop();
@@ -383,6 +409,7 @@ export class GameScene extends Phaser.Scene {
     this.playerDebrisBurst.stop();
     this.playerExplosion.stop();
     this.blinkTrail.stop();
+    this.shieldAura.stop();
     this.scene.start(SceneKeys.GameOver);
   }
 }

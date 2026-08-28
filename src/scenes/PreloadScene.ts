@@ -2,13 +2,16 @@ import Phaser from 'phaser';
 import {
   AnimationKeys,
   ExplosionSheet,
+  GiftSheet,
   SceneKeys,
   SoundKeys,
   SoundPaths,
   TextureKeys,
   TexturePaths,
+  type AnimationKey,
   type TextureKey,
 } from '../config/assetKeys';
+import { shieldAuraConfig } from '../data/gifts';
 import { starfieldConfig, type StarLayerConfig } from '../data/starfield';
 
 const PROGRESS_BAR_WIDTH = 320;
@@ -31,6 +34,14 @@ export class PreloadScene extends Phaser.Scene {
     this.load.spritesheet(TextureKeys.Explosion, TexturePaths[TextureKeys.Explosion], {
       frameWidth: ExplosionSheet.frameWidth,
       frameHeight: ExplosionSheet.frameHeight,
+    });
+    this.load.spritesheet(TextureKeys.GiftHealth, TexturePaths[TextureKeys.GiftHealth], {
+      frameWidth: GiftSheet.frameWidth,
+      frameHeight: GiftSheet.frameHeight,
+    });
+    this.load.spritesheet(TextureKeys.GiftShield, TexturePaths[TextureKeys.GiftShield], {
+      frameWidth: GiftSheet.frameWidth,
+      frameHeight: GiftSheet.frameHeight,
     });
 
     for (const key of Object.values(SoundKeys)) {
@@ -73,7 +84,9 @@ export class PreloadScene extends Phaser.Scene {
     this.createEnemyBoltTexture();
     this.createStarfieldTextures();
     this.createExplosionAnimation();
+    this.createGiftAnimations();
     this.createCrystalGemTexture();
+    this.createShieldAuraTexture();
     this.scene.start(SceneKeys.Menu);
   }
 
@@ -162,6 +175,93 @@ export class PreloadScene extends Phaser.Scene {
       repeat: 0,
       hideOnComplete: true,
     });
+  }
+
+  private createGiftAnimations(): void {
+    this.createLoopingSheetAnimation(
+      AnimationKeys.GiftHealth,
+      TextureKeys.GiftHealth,
+    );
+    this.createLoopingSheetAnimation(
+      AnimationKeys.GiftShield,
+      TextureKeys.GiftShield,
+    );
+  }
+
+  private createLoopingSheetAnimation(key: AnimationKey, textureKey: TextureKey): void {
+    if (this.anims.exists(key) || !this.textures.exists(textureKey)) {
+      return;
+    }
+
+    this.anims.create({
+      key,
+      frames: this.anims.generateFrameNumbers(textureKey, {
+        start: 0,
+        end: GiftSheet.frameCount - 1,
+      }),
+      frameRate: GiftSheet.frameRate,
+      repeat: -1,
+    });
+  }
+
+  private createShieldAuraTexture(): void {
+    if (this.textures.exists(TextureKeys.ShieldAura)) {
+      return;
+    }
+
+    const size = shieldAuraConfig.textureSize;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) {
+      throw new Error('Cannot create shield aura canvas');
+    }
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = size * 0.46;
+
+    const fill = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    fill.addColorStop(0, 'rgba(255,255,255,0.20)');
+    fill.addColorStop(0.55, 'rgba(255,255,255,0.10)');
+    fill.addColorStop(0.82, 'rgba(255,255,255,0.04)');
+    fill.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(220,220,220,0.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 3.5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const specX = cx + radius * 0.38;
+    const specY = cy - radius * 0.42;
+    const spec = ctx.createRadialGradient(specX, specY, 0, specX, specY, 7);
+    spec.addColorStop(0, 'rgba(255,255,255,0.95)');
+    spec.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = spec;
+    ctx.beginPath();
+    ctx.arc(specX, specY, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 1.2, -0.9, -0.25);
+    ctx.stroke();
+
+    this.textures.addCanvas(TextureKeys.ShieldAura, canvas);
   }
 
   private handleLoadError(file: Phaser.Loader.File): void {

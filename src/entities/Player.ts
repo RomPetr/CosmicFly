@@ -14,6 +14,7 @@ const AIM_DEADZONE_PX = 10;
 export type PlayerHitResult = {
   readonly applied: boolean;
   readonly killed: boolean;
+  readonly absorbedByShield: boolean;
 };
 
 export type BlinkHop = {
@@ -35,6 +36,7 @@ export class Player {
   private facingAngle: number;
   private health: number;
   private invulnerableUntilMs: number;
+  private shieldUntilMs: number;
   private flashUntilMs: number;
   private hitFeedbackStartedMs: number;
   private hitFeedbackUntilMs: number;
@@ -46,6 +48,7 @@ export class Player {
     this.facingAngle = flightConfig.northAngleRad;
     this.health = starterShip.maxHealth;
     this.invulnerableUntilMs = 0;
+    this.shieldUntilMs = 0;
     this.flashUntilMs = 0;
     this.hitFeedbackStartedMs = 0;
     this.hitFeedbackUntilMs = 0;
@@ -200,11 +203,15 @@ export class Player {
   ): PlayerHitResult {
     const now = this.sprite.scene.time.now;
     if (this.health <= 0) {
-      return { applied: false, killed: true };
+      return { applied: false, killed: true, absorbedByShield: false };
+    }
+
+    if (amount > 0 && this.hasShield()) {
+      return { applied: true, killed: false, absorbedByShield: true };
     }
 
     if (now < this.invulnerableUntilMs || amount <= 0) {
-      return { applied: false, killed: false };
+      return { applied: false, killed: false, absorbedByShield: false };
     }
 
     this.health = Math.max(0, this.health - amount);
@@ -217,7 +224,36 @@ export class Player {
     this.hitRotationAmplitude = Math.max(0, rotationJitterAmplitude);
     this.sprite.setAlpha(HIT_FLASH_ALPHA);
 
-    return { applied: true, killed: this.health <= 0 };
+    return { applied: true, killed: this.health <= 0, absorbedByShield: false };
+  }
+
+  public heal(amount: number): number {
+    if (amount <= 0 || this.health <= 0) {
+      return 0;
+    }
+
+    const next = Math.min(starterShip.maxHealth, this.health + amount);
+    const healed = next - this.health;
+    this.health = next;
+    this.syncHealthBar();
+    return healed;
+  }
+
+  public activateShield(durationMs: number): void {
+    const now = this.sprite.scene.time.now;
+    this.shieldUntilMs = now + Math.max(0, durationMs);
+  }
+
+  public hasShield(): boolean {
+    return this.sprite.scene.time.now < this.shieldUntilMs;
+  }
+
+  public getShieldRemainingMs(): number {
+    return Math.max(0, this.shieldUntilMs - this.sprite.scene.time.now);
+  }
+
+  public clearShield(): void {
+    this.shieldUntilMs = 0;
   }
 
   /** Hides the ship and disables its body; re-enabling resets the body in place. */
@@ -237,6 +273,7 @@ export class Player {
     this.sprite.setVisible(!dormant);
     this.healthBar.setVisible(!dormant);
     if (dormant) {
+      this.clearShield();
       this.engineFlame.setVisible(false);
       this.reverseFlameLeft.setVisible(false);
       this.reverseFlameRight.setVisible(false);
@@ -246,6 +283,7 @@ export class Player {
   }
 
   public hideForDestruction(): void {
+    this.clearShield();
     this.sprite.setVisible(false);
     this.engineFlame.setVisible(false);
     this.reverseFlameLeft.setVisible(false);

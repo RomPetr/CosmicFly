@@ -93,3 +93,24 @@ Obtained:
 
 Used files:
 - `public/assets/effects/explosion/explosion_sheet.png` — from `exp2_0.png`, 4x4 sprite sheet of 16 frames at 64x64, player ship explosion animation.
+
+## Timberlate007 — Free Shoot`em Up starter Asset Pack
+
+Pack:
+Free Shoot`em Up starter Asset Pack
+
+Author:
+Timberlate007
+
+Source:
+https://timberlate007.itch.io/shootem-up
+
+Obtained:
+2026-08-28
+
+License:
+Free starter pack on itch.io. The pack page describes it as absolutely free. No explicit CC0 statement was on the page at the time of obtainment.
+
+Used:
+- `hp_bonus.png` → `public/assets/pickups/hp_bonus_sheet.png` — health gift, sliced to 5 frames, white background removed;
+- `shield_bonus.png` → `public/assets/pickups/shield_bonus_sheet.png` — shield gift, sliced to 5 frames, white background removed.

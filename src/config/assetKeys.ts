@@ -24,6 +24,9 @@ export const TextureKeys = {
   Explosion: 'explosion',
   CrystalGem: 'crystal-gem',
   SpaceStation: 'space-station',
+  GiftHealth: 'gift-health',
+  GiftShield: 'gift-shield',
+  ShieldAura: 'shield-aura',
 } as const;
 
 export type TextureKey = (typeof TextureKeys)[keyof typeof TextureKeys];
@@ -35,8 +38,17 @@ export const ExplosionSheet = {
   frameRate: 24,
 } as const;
 
+export const GiftSheet = {
+  frameWidth: 32,
+  frameHeight: 32,
+  frameCount: 5,
+  frameRate: 8,
+} as const;
+
 export const AnimationKeys = {
   Explosion: 'explosion-anim',
+  GiftHealth: 'gift-health-anim',
+  GiftShield: 'gift-shield-anim',
 } as const;
 
 export type AnimationKey = (typeof AnimationKeys)[keyof typeof AnimationKeys];
@@ -51,6 +63,8 @@ export const TexturePaths = {
   [TextureKeys.EngineFlame]: '/assets/effects/engine/engine_flame.png',
   [TextureKeys.Explosion]: '/assets/effects/explosion/explosion_sheet.png',
   [TextureKeys.SpaceStation]: '/assets/stations/space_station.png',
+  [TextureKeys.GiftHealth]: '/assets/pickups/hp_bonus_sheet.png',
+  [TextureKeys.GiftShield]: '/assets/pickups/shield_bonus_sheet.png',
 } as const;
 
 export const SoundKeys = {
