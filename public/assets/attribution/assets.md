@@ -131,3 +131,4 @@ Royalty-free for personal and commercial game projects; raw files may not be res
 
 Used files:
 - `Boing_Bounce/SFX_Boing_Bounce_2.wav` → `public/assets/audio/player/gift_pickup.wav` — gift pickup SFX.
+- `Cash_Register/SFX_Cash_Register_Buy_Click_1.wav` → `public/assets/audio/player/ship_ram.wav` — ship ram (hull contact) SFX.

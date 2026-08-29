@@ -11,10 +11,13 @@ const HIT_FEEDBACK_MS = 500;
 const HIT_ROTATION_AMPLITUDE = 0.07;
 const AIM_DEADZONE_PX = 10;
 
+export type PlayerHitCause = 'projectile' | 'meteor' | 'ram';
+
 export type PlayerHitResult = {
   readonly applied: boolean;
   readonly killed: boolean;
   readonly absorbedByShield: boolean;
+  readonly cause: PlayerHitCause;
 };
 
 export type BlinkHop = {
@@ -197,21 +200,36 @@ export class Player {
     return hop;
   }
 
+  public applyKnockback(vx: number, vy: number): void {
+    const body = this.sprite.body;
+    if (!(body instanceof Phaser.Physics.Arcade.Body)) {
+      return;
+    }
+
+    body.velocity.x += vx;
+    body.velocity.y += vy;
+    const speed = body.velocity.length();
+    if (speed > starterShip.maxSpeed && speed > 0) {
+      body.velocity.scale(starterShip.maxSpeed / speed);
+    }
+  }
+
   public takeHit(
     amount: number,
     rotationJitterAmplitude = HIT_ROTATION_AMPLITUDE,
+    cause: PlayerHitCause = 'projectile',
   ): PlayerHitResult {
     const now = this.sprite.scene.time.now;
     if (this.health <= 0) {
-      return { applied: false, killed: true, absorbedByShield: false };
+      return { applied: false, killed: true, absorbedByShield: false, cause };
     }
 
     if (amount > 0 && this.hasShield()) {
-      return { applied: true, killed: false, absorbedByShield: true };
+      return { applied: true, killed: false, absorbedByShield: true, cause };
     }
 
     if (now < this.invulnerableUntilMs || amount <= 0) {
-      return { applied: false, killed: false, absorbedByShield: false };
+      return { applied: false, killed: false, absorbedByShield: false, cause };
     }
 
     this.health = Math.max(0, this.health - amount);
@@ -224,7 +242,16 @@ export class Player {
     this.hitRotationAmplitude = Math.max(0, rotationJitterAmplitude);
     this.sprite.setAlpha(HIT_FLASH_ALPHA);
 
-    return { applied: true, killed: this.health <= 0, absorbedByShield: false };
+    return { applied: true, killed: this.health <= 0, absorbedByShield: false, cause };
+  }
+
+  public reportShieldRam(): PlayerHitResult {
+    return {
+      applied: true,
+      killed: false,
+      absorbedByShield: true,
+      cause: 'ram',
+    };
   }
 
   public heal(amount: number): number {

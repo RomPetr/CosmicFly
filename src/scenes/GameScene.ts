@@ -121,6 +121,7 @@ export class GameScene extends Phaser.Scene {
       this.handleEnemyKilled,
       this.handleMeteorHit,
       this.handlePlayerHit,
+      () => this.audioManager.playSfx(SoundKeys.ShipRam),
     );
 
     this.add
@@ -303,6 +304,10 @@ export class GameScene extends Phaser.Scene {
 
     if (result.absorbedByShield) {
       this.shieldAura.flashHit();
+      return;
+    }
+
+    if (result.cause === 'ram') {
       return;
     }
 

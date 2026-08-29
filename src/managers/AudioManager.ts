@@ -10,6 +10,7 @@ const VOLUME_PLAYER_EXPLOSION = 0.85;
 const VOLUME_SHIP_LAUNCH = 0.55;
 const VOLUME_SHIP_BLINK = 0.62;
 const VOLUME_GIFT_PICKUP = 0.58;
+const VOLUME_SHIP_RAM = 0.55;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
 
@@ -199,6 +200,10 @@ export class AudioManager {
 
     if (key === SoundKeys.GiftPickup) {
       return VOLUME_GIFT_PICKUP;
+    }
+
+    if (key === SoundKeys.ShipRam) {
+      return VOLUME_SHIP_RAM;
     }
 
     return VOLUME_PULSE;

@@ -24,6 +24,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private orbitSwitchRemainingMs: number;
   private weavePhase: number;
   private weaveFrequency: number;
+  private knockbackRemainingMs: number;
+  private spinRemainingRad: number;
+  private spinOmegaRadPerSec: number;
+  private ramLockedUntilMs: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.StingDart);
@@ -50,6 +54,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.orbitSwitchRemainingMs = 0;
     this.weavePhase = 0;
     this.weaveFrequency = 0;
+    this.knockbackRemainingMs = 0;
+    this.spinRemainingRad = 0;
+    this.spinOmegaRadPerSec = 0;
+    this.ramLockedUntilMs = 0;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -84,6 +92,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       def.weaveFrequencyMin,
       def.weaveFrequencyMax,
     );
+    this.clearRamState();
 
     this.setTexture(def.textureKey);
     this.setScale(def.scale);
@@ -122,6 +131,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     const deltaSeconds = delta / 1000;
+
+    if (this.knockbackRemainingMs > 0) {
+      this.knockbackRemainingMs = Math.max(0, this.knockbackRemainingMs - delta);
+      this.tickSpin(deltaSeconds);
+      this.syncHealthBar();
+      return;
+    }
+
     const offsetX = targetX - this.x;
     const offsetY = targetY - this.y;
     const distance = Math.hypot(offsetX, offsetY);
@@ -164,7 +181,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     body.velocity.x += (targetVelocityX - body.velocity.x) * steeringAlpha;
     body.velocity.y += (targetVelocityY - body.velocity.y) * steeringAlpha;
 
-    if (body.velocity.lengthSq() > 1) {
+    this.tickSpin(deltaSeconds);
+    if (this.spinRemainingRad === 0 && body.velocity.lengthSq() > 1) {
       this.setRotation(Math.atan2(body.velocity.y, body.velocity.x) + this.noseOffset);
     }
 
@@ -172,7 +190,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   public consumeFireRequest(delta: number): boolean {
-    if (!this.active) {
+    if (!this.active || this.knockbackRemainingMs > 0) {
       return false;
     }
 
@@ -197,6 +215,47 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return this.hull <= 0;
   }
 
+  public takeHullDamage(amount: number): boolean {
+    if (!this.active || this.hull <= 0 || amount <= 0) {
+      return false;
+    }
+
+    this.hull = Math.max(0, this.hull - amount);
+    this.syncHealthBar();
+    return this.hull <= 0;
+  }
+
+  public applyKnockback(vx: number, vy: number, stunMs: number): void {
+    const body = this.body;
+    if (!(body instanceof Phaser.Physics.Arcade.Body)) {
+      return;
+    }
+
+    body.setVelocity(vx, vy);
+    this.knockbackRemainingMs = Math.max(0, stunMs);
+  }
+
+  public applySpin(turns: number, durationMs: number): void {
+    const durationSec = durationMs / 1000;
+    if (turns === 0 || durationSec <= 0) {
+      this.spinRemainingRad = 0;
+      this.spinOmegaRadPerSec = 0;
+      return;
+    }
+
+    this.spinRemainingRad = turns * Math.PI * 2;
+    this.spinOmegaRadPerSec = this.spinRemainingRad / durationSec;
+  }
+
+  public tryLockRam(nowMs: number, cooldownMs: number): boolean {
+    if (nowMs < this.ramLockedUntilMs) {
+      return false;
+    }
+
+    this.ramLockedUntilMs = nowMs + cooldownMs;
+    return true;
+  }
+
   public getDefinition(): EnemyDef | null {
     return this.definition;
   }
@@ -210,6 +269,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   public deactivate(): void {
+    this.clearRamState();
+
     if (!this.scene.sys.isActive()) {
       return;
     }
@@ -221,6 +282,30 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     this.disableBody(true, true);
     this.healthBar.setVisible(false);
+  }
+
+  private tickSpin(deltaSeconds: number): void {
+    if (this.spinRemainingRad === 0 || this.spinOmegaRadPerSec === 0) {
+      return;
+    }
+
+    const step = this.spinOmegaRadPerSec * deltaSeconds;
+    if (Math.abs(step) >= Math.abs(this.spinRemainingRad)) {
+      this.setRotation(this.rotation + this.spinRemainingRad);
+      this.spinRemainingRad = 0;
+      this.spinOmegaRadPerSec = 0;
+      return;
+    }
+
+    this.setRotation(this.rotation + step);
+    this.spinRemainingRad -= step;
+  }
+
+  private clearRamState(): void {
+    this.knockbackRemainingMs = 0;
+    this.spinRemainingRad = 0;
+    this.spinOmegaRadPerSec = 0;
+    this.ramLockedUntilMs = 0;
   }
 
   private syncHealthBar(): void {
