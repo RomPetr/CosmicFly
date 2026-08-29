@@ -110,7 +110,7 @@ export class GameScene extends Phaser.Scene {
     this.playerExplosion = new ExplosionEffect(this);
     this.blinkTrail = new BlinkTrail(this);
     this.shieldAura = new ShieldAura(this, this.player);
-    this.giftSystem = new GiftSystem(this, this.player);
+    this.giftSystem = new GiftSystem(this, this.player, this.audioManager);
     this.collisionSystem = new CollisionSystem(
       this,
       this.weaponSystem.getProjectiles(),

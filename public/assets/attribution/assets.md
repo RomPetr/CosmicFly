@@ -114,3 +114,20 @@ Free starter pack on itch.io. The pack page describes it as absolutely free. No 
 Used:
 - `hp_bonus.png` → `public/assets/pickups/hp_bonus_sheet.png` — health gift, sliced to 5 frames, white background removed;
 - `shield_bonus.png` → `public/assets/pickups/shield_bonus_sheet.png` — shield gift, sliced to 5 frames, white background removed.
+
+## Cute UI Interact Sound Effects Pack
+
+Pack:
+Cute UI Interact Sound Effects Pack (Boing Bounce)
+
+Source:
+User-provided asset pack in `free_assets/Cute_UI_Interact_Sound_Effects_Pack/`
+
+Obtained:
+2026-08-29
+
+License:
+Royalty-free for personal and commercial game projects; raw files may not be resold or redistributed separately (per pack readme).
+
+Used files:
+- `Boing_Bounce/SFX_Boing_Bounce_2.wav` → `public/assets/audio/player/gift_pickup.wav` — gift pickup SFX.

@@ -21,8 +21,10 @@ export type GiftKindDef = {
 
 export const giftDrop = {
   sourceEnemyId: EnemyIds.StingDart,
-  killThresholdMin: 15,
+  killThresholdMin: 2,
   killThresholdMax: 20,
+  /** Per-kill chance to drop early once the minimum kill count is reached. */
+  surpriseDropChance: 0.12,
   poolSize: 4,
 } as const;
 

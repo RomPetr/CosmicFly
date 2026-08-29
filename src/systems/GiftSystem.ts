@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { SoundKeys } from '../config/assetKeys';
 import {
   GiftIds,
   giftDrop,
@@ -10,20 +11,23 @@ import { starterShip } from '../data/ships';
 import type { Enemy } from '../entities/Enemy';
 import { Gift } from '../entities/Gift';
 import type { Player } from '../entities/Player';
+import type { AudioManager } from '../managers/AudioManager';
 
 type PhysicsObject = Parameters<Phaser.Types.Physics.Arcade.ArcadePhysicsCallback>[0];
 
 export class GiftSystem {
   private readonly scene: Phaser.Scene;
   private readonly player: Player;
+  private readonly audioManager: AudioManager;
   private readonly gifts: Phaser.Physics.Arcade.Group;
   private enabled: boolean;
   private smallKillCount: number;
   private nextDropThreshold: number;
 
-  public constructor(scene: Phaser.Scene, player: Player) {
+  public constructor(scene: Phaser.Scene, player: Player, audioManager: AudioManager) {
     this.scene = scene;
     this.player = player;
+    this.audioManager = audioManager;
     this.enabled = false;
     this.smallKillCount = 0;
     this.nextDropThreshold = this.rollThreshold();
@@ -59,7 +63,8 @@ export class GiftSystem {
     }
 
     this.smallKillCount += 1;
-    if (this.smallKillCount < this.nextDropThreshold) {
+
+    if (!this.shouldDropGift()) {
       return;
     }
 
@@ -133,6 +138,7 @@ export class GiftSystem {
     }
 
     this.applyGift(gift);
+    this.audioManager.playSfx(SoundKeys.GiftPickup);
     gift.deactivate();
   }
 
@@ -164,8 +170,42 @@ export class GiftSystem {
     this.nextDropThreshold = this.rollThreshold();
   }
 
+  private shouldDropGift(): boolean {
+    if (this.smallKillCount >= giftDrop.killThresholdMax) {
+      return true;
+    }
+
+    if (this.smallKillCount >= this.nextDropThreshold) {
+      return true;
+    }
+
+    if (
+      this.smallKillCount >= giftDrop.killThresholdMin &&
+      Math.random() < giftDrop.surpriseDropChance
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
   private rollThreshold(): number {
-    return Phaser.Math.Between(giftDrop.killThresholdMin, giftDrop.killThresholdMax);
+    const { killThresholdMin, killThresholdMax } = giftDrop;
+    const bucket = Phaser.Math.Between(0, 2);
+
+    if (bucket === 0) {
+      const earlyMax = Math.min(killThresholdMax, killThresholdMin + 4);
+      return Phaser.Math.Between(killThresholdMin, earlyMax);
+    }
+
+    if (bucket === 1) {
+      const lateMin = Math.min(killThresholdMax, killThresholdMin + 10);
+      return Phaser.Math.Between(lateMin, killThresholdMax);
+    }
+
+    const midMin = Math.min(killThresholdMax, killThresholdMin + 5);
+    const midMax = Math.max(midMin, killThresholdMax - 4);
+    return Phaser.Math.Between(midMin, midMax);
   }
 
   private rollKind(): GiftId {

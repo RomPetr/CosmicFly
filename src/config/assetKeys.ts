@@ -77,6 +77,7 @@ export const SoundKeys = {
   PlayerExplosion: 'player-explosion',
   ShipLaunch: 'ship-launch',
   ShipBlink: 'ship-blink',
+  GiftPickup: 'gift-pickup',
   EngineLow: 'engine-low',
   EngineLarge: 'engine-large',
 } as const;
@@ -93,6 +94,7 @@ export const SoundPaths = {
   [SoundKeys.PlayerExplosion]: '/assets/audio/player/player_explosion.ogg',
   [SoundKeys.ShipLaunch]: '/assets/audio/player/ship_launch.ogg',
   [SoundKeys.ShipBlink]: '/assets/audio/player/ship_blink.ogg',
+  [SoundKeys.GiftPickup]: '/assets/audio/player/gift_pickup.wav',
   [SoundKeys.EngineLow]: '/assets/audio/engine/engine_low.ogg',
   [SoundKeys.EngineLarge]: '/assets/audio/engine/engine_large.ogg',
 } as const;
