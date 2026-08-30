@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys, SoundKeys } from '../config/assetKeys';
+import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
 import { bases } from '../data/bases';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
@@ -86,6 +86,7 @@ export class GameScene extends Phaser.Scene {
 
     this.game.canvas.setAttribute('tabindex', '0');
     this.game.canvas.focus();
+    this.input.setDefaultCursor(AimCursorCss);
 
     this.audioManager = new AudioManager(this);
     this.inputManager = new InputManager(this);

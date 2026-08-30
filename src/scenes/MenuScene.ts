@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { SceneKeys } from '../config/assetKeys';
+import { AimCursorCss, SceneKeys } from '../config/assetKeys';
 import { gameProgress, type StartPoint } from '../state/GameProgress';
 import { gameState } from '../state/GameState';
 
@@ -15,6 +15,7 @@ export class MenuScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor(0x0b0d12);
+    this.input.setDefaultCursor(AimCursorCss);
 
     this.add
       .text(width / 2, height / 2 - 96, 'CosmicFly', {

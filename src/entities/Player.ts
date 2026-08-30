@@ -10,6 +10,7 @@ const HIT_FLASH_ALPHA = 0.4;
 const HIT_FEEDBACK_MS = 500;
 const HIT_ROTATION_AMPLITUDE = 0.07;
 const AIM_DEADZONE_PX = 10;
+const AIM_UNLOCK_MOVE_PX = 6;
 
 export type PlayerHitCause = 'projectile' | 'meteor' | 'ram';
 
@@ -45,6 +46,9 @@ export class Player {
   private hitFeedbackUntilMs: number;
   private hitRotationAmplitude: number;
   private blinkReadyAtMs: number;
+  private aimLocked: boolean;
+  private aimLockPointerX: number;
+  private aimLockPointerY: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number, inputManager: InputManager) {
     this.inputManager = inputManager;
@@ -57,6 +61,9 @@ export class Player {
     this.hitFeedbackUntilMs = 0;
     this.hitRotationAmplitude = HIT_ROTATION_AMPLITUDE;
     this.blinkReadyAtMs = 0;
+    this.aimLocked = false;
+    this.aimLockPointerX = 0;
+    this.aimLockPointerY = 0;
 
     if (!scene.textures.exists(starterShip.textureKey)) {
       throw new Error(`Texture "${starterShip.textureKey}" is not registered`);
@@ -72,7 +79,7 @@ export class Player {
     this.sprite = scene.physics.add.sprite(x, y, starterShip.textureKey);
     this.sprite.setOrigin(0.5, 0.5);
     this.sprite.setScale(starterShip.scale);
-    this.sprite.setRotation(this.facingAngle + starterShip.angleOffset);
+    this.faceNorth();
     this.sprite.clearTint();
 
     const body = this.sprite.body;
@@ -92,6 +99,7 @@ export class Player {
     this.healthBar = new HealthBar(scene, playerHealthBarStyle);
     this.healthBar.setVisible(true);
     this.syncHealthBar();
+    this.freezeAimUntilPointerMoves();
   }
 
   public update(): void {
@@ -102,7 +110,20 @@ export class Player {
     );
 
     const aim = this.inputManager.getAimPosition();
+    if (this.aimLocked) {
+      const pointerMovedPx = Phaser.Math.Distance.Between(
+        this.aimLockPointerX,
+        this.aimLockPointerY,
+        aim.x,
+        aim.y,
+      );
+      if (pointerMovedPx > AIM_UNLOCK_MOVE_PX) {
+        this.aimLocked = false;
+      }
+    }
+
     if (
+      !this.aimLocked &&
       Phaser.Math.Distance.Between(this.sprite.x, this.sprite.y, aim.x, aim.y) > AIM_DEADZONE_PX
     ) {
       this.facingAngle = Phaser.Math.Angle.Between(this.sprite.x, this.sprite.y, aim.x, aim.y);
@@ -305,6 +326,8 @@ export class Player {
       this.reverseFlameLeft.setVisible(false);
       this.reverseFlameRight.setVisible(false);
     } else {
+      this.faceNorth();
+      this.freezeAimUntilPointerMoves();
       this.syncHealthBar();
     }
   }
@@ -353,6 +376,20 @@ export class Player {
       this.sprite.x + Math.cos(this.facingAngle) * starterShip.muzzleOffsetPx,
       this.sprite.y + Math.sin(this.facingAngle) * starterShip.muzzleOffsetPx,
     );
+  }
+
+  private faceNorth(): void {
+    this.facingAngle = flightConfig.northAngleRad;
+    this.sprite.setRotation(this.facingAngle + starterShip.angleOffset);
+  }
+
+  private freezeAimUntilPointerMoves(): void {
+    const scene = this.sprite.scene;
+    const pointer = scene.input.activePointer;
+    pointer.updateWorldPoint(scene.cameras.main);
+    this.aimLocked = true;
+    this.aimLockPointerX = pointer.worldX;
+    this.aimLockPointerY = pointer.worldY;
   }
 
   private syncHealthBar(): void {

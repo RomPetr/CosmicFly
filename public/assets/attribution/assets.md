@@ -132,3 +132,20 @@ Royalty-free for personal and commercial game projects; raw files may not be res
 Used files:
 - `Boing_Bounce/SFX_Boing_Bounce_2.wav` → `public/assets/audio/player/gift_pickup.wav` — gift pickup SFX.
 - `Cash_Register/SFX_Cash_Register_Buy_Click_1.wav` → `public/assets/audio/player/ship_ram.wav` — ship ram (hull contact) SFX.
+
+## Kenney UI Pack Sci-Fi
+
+Source:
+https://kenney.nl/assets/ui-pack-sci-fi
+
+License:
+Creative Commons CC0 1.0
+
+Author:
+Kenney Vleugels (Kenney.nl)
+
+Obtained:
+2026-08-30
+
+Used files:
+- `PNG/Blue/Default/crosshair_color_b.png` → `public/assets/ui/crosshair_color_b.png` — player aim cursor (CSS system cursor).

@@ -53,6 +53,19 @@ export const AnimationKeys = {
 
 export type AnimationKey = (typeof AnimationKeys)[keyof typeof AnimationKeys];
 
+/** Public URL for the CSS system cursor (not loaded as a Phaser texture). */
+export const CursorPaths = {
+  Aim: '/assets/ui/crosshair_color_b.png',
+} as const;
+
+/** Center of `crosshair_color_b.png` (28×28). */
+export const AimCursorHotspot = {
+  x: 14,
+  y: 14,
+} as const;
+
+export const AimCursorCss = `url(${CursorPaths.Aim}) ${AimCursorHotspot.x} ${AimCursorHotspot.y}, crosshair`;
+
 export const TexturePaths = {
   [TextureKeys.PlayerShip]: '/assets/ships/player/spaceShips_001.png',
   [TextureKeys.StingDart]: '/assets/enemies/sting-dart/spaceShips_008.png',
