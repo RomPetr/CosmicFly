@@ -15,6 +15,10 @@ const VOLUME_METEOR_RAM = 0.55;
 const VOLUME_MIDDLE_RAM = 0.58;
 const VOLUME_ENGINE_LOW = 0.14;
 const VOLUME_ENGINE_LARGE = 0.2;
+const OVERHEAT_HIGH_HZ = 880;
+const OVERHEAT_LOW_HZ = 660;
+const OVERHEAT_NOTE_MS = 325;
+const OVERHEAT_VOLUME = 0.08;
 
 type EngineLoop = Phaser.Sound.HTML5AudioSound | Phaser.Sound.WebAudioSound | Phaser.Sound.NoAudioSound;
 
@@ -27,6 +31,12 @@ export class AudioManager {
   private loopsPrepared: boolean;
   private waitingForUnlock: boolean;
   private thrusting: boolean;
+  private overheatAlarmRequested: boolean;
+  private overheatWaitingForUnlock: boolean;
+  private overheatOscillator: OscillatorNode | null;
+  private overheatGain: GainNode | null;
+  private overheatPitchEvent: Phaser.Time.TimerEvent | null;
+  private overheatHighTone: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -37,6 +47,12 @@ export class AudioManager {
     this.loopsPrepared = false;
     this.waitingForUnlock = false;
     this.thrusting = false;
+    this.overheatAlarmRequested = false;
+    this.overheatWaitingForUnlock = false;
+    this.overheatOscillator = null;
+    this.overheatGain = null;
+    this.overheatPitchEvent = null;
+    this.overheatHighTone = true;
   }
 
   public startFlight(): void {
@@ -60,12 +76,12 @@ export class AudioManager {
     this.playEngineLoops();
   }
 
-  public playSfx(key: SoundKey): void {
+  public playSfx(key: SoundKey, volume?: number): void {
     if (!this.hasAudio(key)) {
       return;
     }
 
-    this.scene.sound.play(key, { volume: this.getSfxVolume(key) });
+    this.scene.sound.play(key, { volume: volume ?? this.getSfxVolume(key) });
   }
 
   public playLaunchCue(): void {
@@ -88,7 +104,28 @@ export class AudioManager {
     this.launchCue = null;
   }
 
+  public startOverheatAlarm(): void {
+    if (this.overheatAlarmRequested) {
+      return;
+    }
+
+    this.overheatAlarmRequested = true;
+    this.tryStartOverheatAlarm();
+  }
+
+  public stopOverheatAlarm(): void {
+    if (!this.overheatAlarmRequested && this.overheatOscillator === null) {
+      return;
+    }
+
+    this.overheatAlarmRequested = false;
+    this.overheatWaitingForUnlock = false;
+    this.scene.sound.off(Phaser.Sound.Events.UNLOCKED, this.tryStartOverheatAlarm, this);
+    this.destroyOverheatNodes();
+  }
+
   public stopFlight(): void {
+    this.stopOverheatAlarm();
     this.thrusting = false;
     this.flightActive = false;
     this.loopsPrepared = false;
@@ -100,6 +137,94 @@ export class AudioManager {
     this.engineLowLoop = null;
     this.engineLargeLoop = null;
     this.launchCue = null;
+  }
+
+  private tryStartOverheatAlarm(): void {
+    if (!this.overheatAlarmRequested || this.overheatOscillator !== null) {
+      return;
+    }
+
+    if (!this.scene.sys.isActive()) {
+      return;
+    }
+
+    if (this.scene.sound.locked) {
+      if (!this.overheatWaitingForUnlock) {
+        this.overheatWaitingForUnlock = true;
+        this.scene.sound.once(Phaser.Sound.Events.UNLOCKED, this.tryStartOverheatAlarm, this);
+      }
+      return;
+    }
+
+    this.overheatWaitingForUnlock = false;
+    const manager = this.getWebAudioManager();
+    if (manager === null || manager.context.state === 'closed') {
+      return;
+    }
+
+    const oscillator = manager.context.createOscillator();
+    oscillator.type = 'square';
+    oscillator.frequency.value = OVERHEAT_HIGH_HZ;
+
+    const gain = manager.context.createGain();
+    gain.gain.value = OVERHEAT_VOLUME;
+    oscillator.connect(gain);
+    gain.connect(manager.destination);
+    oscillator.start();
+
+    this.overheatOscillator = oscillator;
+    this.overheatGain = gain;
+    this.overheatHighTone = true;
+    this.overheatPitchEvent = this.scene.time.addEvent({
+      delay: OVERHEAT_NOTE_MS,
+      loop: true,
+      callback: this.toggleOverheatPitch,
+      callbackScope: this,
+    });
+  }
+
+  private toggleOverheatPitch(): void {
+    if (this.overheatOscillator === null) {
+      return;
+    }
+
+    this.overheatHighTone = !this.overheatHighTone;
+    this.overheatOscillator.frequency.value = this.overheatHighTone
+      ? OVERHEAT_HIGH_HZ
+      : OVERHEAT_LOW_HZ;
+  }
+
+  private destroyOverheatNodes(): void {
+    if (this.overheatPitchEvent !== null) {
+      this.overheatPitchEvent.remove(false);
+      this.overheatPitchEvent = null;
+    }
+
+    if (this.overheatOscillator !== null) {
+      try {
+        this.overheatOscillator.stop();
+      } catch {
+        // OscillatorNode.stop throws if it has already been stopped.
+      }
+      this.overheatOscillator.disconnect();
+      this.overheatOscillator = null;
+    }
+
+    if (this.overheatGain !== null) {
+      this.overheatGain.disconnect();
+      this.overheatGain = null;
+    }
+
+    this.overheatHighTone = true;
+  }
+
+  private getWebAudioManager(): Phaser.Sound.WebAudioSoundManager | null {
+    const sound = this.scene.sound;
+    if (sound instanceof Phaser.Sound.WebAudioSoundManager) {
+      return sound;
+    }
+
+    return null;
   }
 
   private prepareEngineLoops(): void {

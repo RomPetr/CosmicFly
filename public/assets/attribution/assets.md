@@ -92,7 +92,14 @@ Obtained:
 2026-08-23
 
 Used files:
-- `public/assets/effects/explosion/explosion_sheet.png` — from `exp2_0.png`, 4x4 sprite sheet of 16 frames at 64x64, player ship explosion animation.
+- `public/assets/effects/explosion/explosion_sheet.png` — from `exp2_0.png`, 4x4 sprite sheet of 16 frames at 64x64. Sole explosion clip: player ship death (`spawnBurst`) and flare-missile impact (`spawnCompact`).
+
+## Procedural runtime assets
+
+Not third-party files. Generated in the browser at preload / play time.
+
+- Overheat klaxon — Web Audio oscillator (square, 880/660 Hz), no sample file. Plays during pulse-beam lockout.
+- Missile spark texture — Phaser graphics 6×6 soft amber point (`TextureKeys.MissileSpark`), used by flare-missile tail emitters. Not in `TexturePaths`.
 
 ## Timberlate007 — Free Shoot`em Up starter Asset Pack
 

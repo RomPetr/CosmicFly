@@ -11,6 +11,15 @@ const SATELLITE_SCALE_MIN = 0.7;
 const SATELLITE_SCALE_MAX = 1.45;
 const SATELLITE_DELAY_MIN_MS = 60;
 const SATELLITE_DELAY_MAX_MS = 380;
+const COMPACT_CORE_SCALE = 0.55;
+const COMPACT_SATELLITE_MIN = 2;
+const COMPACT_SATELLITE_MAX = 3;
+const COMPACT_RADIUS_MIN = 6;
+const COMPACT_RADIUS_MAX = 16;
+const COMPACT_SCALE_MIN = 0.28;
+const COMPACT_SCALE_MAX = 0.5;
+const COMPACT_DELAY_MIN_MS = 16;
+const COMPACT_DELAY_MAX_MS = 80;
 
 export class ExplosionEffect {
   private readonly scene: Phaser.Scene;
@@ -37,6 +46,26 @@ export class ExplosionEffect {
         y + Math.sin(angle) * radius,
         Phaser.Math.FloatBetween(SATELLITE_SCALE_MIN, SATELLITE_SCALE_MAX),
         Phaser.Math.Between(SATELLITE_DELAY_MIN_MS, SATELLITE_DELAY_MAX_MS),
+      );
+    }
+  }
+
+  public spawnCompact(x: number, y: number): void {
+    if (!this.isAvailable()) {
+      return;
+    }
+
+    this.spawnSprite(x, y, COMPACT_CORE_SCALE, 0);
+
+    const satellites = Phaser.Math.Between(COMPACT_SATELLITE_MIN, COMPACT_SATELLITE_MAX);
+    for (let index = 0; index < satellites; index += 1) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const radius = Phaser.Math.FloatBetween(COMPACT_RADIUS_MIN, COMPACT_RADIUS_MAX);
+      this.spawnSprite(
+        x + Math.cos(angle) * radius,
+        y + Math.sin(angle) * radius,
+        Phaser.Math.FloatBetween(COMPACT_SCALE_MIN, COMPACT_SCALE_MAX),
+        Phaser.Math.Between(COMPACT_DELAY_MIN_MS, COMPACT_DELAY_MAX_MS),
       );
     }
   }

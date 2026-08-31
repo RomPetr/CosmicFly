@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
 import { WeaponIds, type PlayerProjectileDamage } from '../data/weapons';
+import { MissileSparkTrail } from '../effects/MissileSparkTrail';
 
 export class Projectile extends Phaser.Physics.Arcade.Sprite {
   private elapsedMs: number;
   private lifetimeMs: number;
   private damage: PlayerProjectileDamage;
+  private sparkTrail: MissileSparkTrail | null;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.PulseBolt);
@@ -20,6 +22,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
       sourceId: WeaponIds.PulseBeam,
       baseDamage: 0,
     };
+    this.sparkTrail = null;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -62,6 +65,12 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.elapsedMs = 0;
     this.lifetimeMs = lifetimeMs;
     this.damage = damage;
+
+    if (damage.sourceId === WeaponIds.FlareMissiles) {
+      this.startSparkTrail(rotation);
+    } else {
+      this.stopSparkTrail();
+    }
   }
 
   public getDamage(): PlayerProjectileDamage {
@@ -86,6 +95,8 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   }
 
   public deactivate(): void {
+    this.stopSparkTrail();
+
     if (!this.scene.sys.isActive()) {
       return;
     }
@@ -96,6 +107,18 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.disableBody(true, true);
+  }
+
+  private startSparkTrail(travelRotation: number): void {
+    if (this.sparkTrail === null) {
+      this.sparkTrail = new MissileSparkTrail(this.scene);
+    }
+
+    this.sparkTrail.start(this, travelRotation);
+  }
+
+  private stopSparkTrail(): void {
+    this.sparkTrail?.stop();
   }
 
   private isOutOfWorld(): boolean {

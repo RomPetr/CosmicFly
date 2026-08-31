@@ -81,6 +81,7 @@ export class PreloadScene extends Phaser.Scene {
     }
 
     this.createPulseBoltTexture();
+    this.createMissileSparkTexture();
     this.createEnemyBoltTexture();
     this.createStarfieldTextures();
     this.createExplosionAnimation();
@@ -293,6 +294,26 @@ export class PreloadScene extends Phaser.Scene {
     graphics.fillCircle(width - radius - 1, radius, radius - 1);
 
     graphics.generateTexture(TextureKeys.PulseBolt, width, height);
+    graphics.destroy();
+  }
+
+  private createMissileSparkTexture(): void {
+    if (this.textures.exists(TextureKeys.MissileSpark)) {
+      return;
+    }
+
+    const size = 6;
+    const center = size / 2;
+    const graphics = this.make.graphics({}, false);
+
+    graphics.fillStyle(0xff6622, 0.45);
+    graphics.fillCircle(center, center, 3);
+    graphics.fillStyle(0xffee88, 0.85);
+    graphics.fillCircle(center, center, 2);
+    graphics.fillStyle(0xfff6e0, 1);
+    graphics.fillCircle(center, center, 1);
+
+    graphics.generateTexture(TextureKeys.MissileSpark, size, size);
     graphics.destroy();
   }
 

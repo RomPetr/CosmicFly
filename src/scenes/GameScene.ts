@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
 import { bases } from '../data/bases';
 import type { RamSoundKind } from '../data/ramming';
+import { WeaponIds, type WeaponId } from '../data/weapons';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
 import { Player, type PlayerHitResult } from '../entities/Player';
@@ -27,6 +28,7 @@ import {
   emeraldCounterStyle,
   rubyCounterStyle,
 } from '../ui/CrystalCounter';
+import { LaserHeatBar } from '../ui/LaserHeatBar';
 
 const DEATH_TO_GAME_OVER_MS = 1500;
 const DEATH_SHAKE_MS = 280;
@@ -60,10 +62,12 @@ export class GameScene extends Phaser.Scene {
   private hudText!: Phaser.GameObjects.Text;
   private emeraldCounter!: CrystalCounter;
   private rubyCounter!: CrystalCounter;
+  private laserHeatBar!: LaserHeatBar;
   private endFlight!: Phaser.GameObjects.Text;
   private wallet!: WalletManager;
   private transitioning = false;
   private destroyingPlayer = false;
+  private overheatAlarmActive = false;
   private startKm = 0;
   private recordedCheckpoints = new Set<number>();
 
@@ -78,6 +82,7 @@ export class GameScene extends Phaser.Scene {
   public create(): void {
     this.transitioning = false;
     this.destroyingPlayer = false;
+    this.overheatAlarmActive = false;
     this.recordedCheckpoints = new Set<number>();
 
     const { width, height } = this.scale;
@@ -124,6 +129,7 @@ export class GameScene extends Phaser.Scene {
       this.handleMeteorHit,
       this.handlePlayerHit,
       this.handleRamSound,
+      this.handlePlayerProjectileImpact,
     );
 
     this.add
@@ -158,6 +164,8 @@ export class GameScene extends Phaser.Scene {
 
     this.emeraldCounter = new CrystalCounter(this, emeraldCounterStyle);
     this.rubyCounter = new CrystalCounter(this, rubyCounterStyle);
+    this.laserHeatBar = new LaserHeatBar(this);
+    this.laserHeatBar.setVisible(this.startKm > 0);
     this.syncCrystalCounters();
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
     this.events.on(Phaser.Scenes.Events.PAUSE, this.deactivateEngineThrust, this);
@@ -213,6 +221,8 @@ export class GameScene extends Phaser.Scene {
     );
     this.meteorSystem.update(delta, this.starfieldSystem.getScrollSpeed());
     this.weaponSystem.update(delta);
+    this.laserHeatBar.update(this.weaponSystem.getHeatState());
+    this.syncOverheatAlarm();
     this.spawnSystem.update(delta, this.starfieldSystem.getDistanceKm());
     this.enemyWeaponSystem.update(delta);
     this.giftSystem.update(delta);
@@ -247,10 +257,31 @@ export class GameScene extends Phaser.Scene {
     this.startGameplaySystems();
   }
 
+  private syncOverheatAlarm(): void {
+    const shouldPlay =
+      this.weaponSystem.getHeatState().lockout &&
+      document.visibilityState !== 'hidden' &&
+      document.hasFocus();
+
+    if (shouldPlay === this.overheatAlarmActive) {
+      return;
+    }
+
+    if (shouldPlay) {
+      this.audioManager.startOverheatAlarm();
+      this.overheatAlarmActive = true;
+      return;
+    }
+
+    this.audioManager.stopOverheatAlarm();
+    this.overheatAlarmActive = false;
+  }
+
   private startGameplaySystems(): void {
     this.spawnSystem.start();
     this.meteorSystem.start();
     this.giftSystem.start();
+    this.laserHeatBar.setVisible(true);
   }
 
   private recordCheckpointsIfNeeded(): void {
@@ -298,6 +329,15 @@ export class GameScene extends Phaser.Scene {
     this.meteorDebrisBurst.spawnHit(meteor.x, meteor.y);
   };
 
+  private handlePlayerProjectileImpact = (x: number, y: number, sourceId: WeaponId): void => {
+    if (sourceId !== WeaponIds.FlareMissiles) {
+      return;
+    }
+
+    this.playerExplosion.spawnCompact(x, y);
+    this.audioManager.playSfx(SoundKeys.PlayerExplosion, 0.32);
+  };
+
   private handleRamSound = (kind: RamSoundKind): void => {
     if (kind === 'middle') {
       this.audioManager.playSfx(SoundKeys.MiddleRam);
@@ -336,6 +376,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.destroyingPlayer = true;
+    this.laserHeatBar.setVisible(false);
     this.deactivateEngineThrust();
     this.input.enabled = false;
     this.collisionSystem.stop();
@@ -389,6 +430,8 @@ export class GameScene extends Phaser.Scene {
     this.player.setEngineThrustActive(false);
     this.player.setReverseThrustActive(false);
     this.audioManager.updateThrust(false);
+    this.audioManager.stopOverheatAlarm();
+    this.overheatAlarmActive = false;
   }
 
   private handleVisibilityChange = (): void => {

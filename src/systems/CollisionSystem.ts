@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { starterShip } from '../data/ships';
+import type { WeaponId } from '../data/weapons';
 import { EnemyIds, type EnemyDef } from '../data/enemies';
 import {
   bubbleMiddleEnemyRamDamage,
@@ -27,6 +28,7 @@ export class CollisionSystem {
   private readonly onMeteorHit: (meteor: Meteor, destroyed: boolean) => void;
   private readonly onPlayerHit: (result: PlayerHitResult) => void;
   private readonly onRamSound: (kind: RamSoundKind) => void;
+  private readonly onPlayerProjectileImpact: (x: number, y: number, sourceId: WeaponId) => void;
   private readonly colliders: Phaser.Physics.Arcade.Collider[];
   private enabled: boolean;
 
@@ -41,6 +43,7 @@ export class CollisionSystem {
     onMeteorHit: (meteor: Meteor, destroyed: boolean) => void,
     onPlayerHit: (result: PlayerHitResult) => void,
     onRamSound: (kind: RamSoundKind) => void,
+    onPlayerProjectileImpact: (x: number, y: number, sourceId: WeaponId) => void,
   ) {
     this.scene = scene;
     this.player = player;
@@ -48,6 +51,7 @@ export class CollisionSystem {
     this.onMeteorHit = onMeteorHit;
     this.onPlayerHit = onPlayerHit;
     this.onRamSound = onRamSound;
+    this.onPlayerProjectileImpact = onPlayerProjectileImpact;
     this.enabled = true;
     this.colliders = [
       scene.physics.add.overlap(
@@ -129,6 +133,7 @@ export class CollisionSystem {
     }
 
     const damage = projectile.getDamage();
+    this.onPlayerProjectileImpact(projectile.x, projectile.y, damage.sourceId);
     projectile.deactivate();
 
     if (enemy.takeDamage(damage)) {
@@ -160,6 +165,7 @@ export class CollisionSystem {
     }
 
     const damage = projectile.getDamage();
+    this.onPlayerProjectileImpact(projectile.x, projectile.y, damage.sourceId);
     projectile.deactivate();
 
     const destroyed = meteor.takeDamage(damage.baseDamage);

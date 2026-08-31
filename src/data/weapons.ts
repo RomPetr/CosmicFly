@@ -53,7 +53,7 @@ export const flareMissilesWeapon: WeaponDef = {
   },
   lifetimeMs: 1400,
   projectileCount: 1,
-  scale: 0.95,
+  scale: 0.76,
   angleOffset: Math.PI / 2,
 };
 

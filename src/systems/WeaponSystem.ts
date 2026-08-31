@@ -5,8 +5,17 @@ import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import type { AudioManager } from '../managers/AudioManager';
 import type { InputManager } from '../managers/InputManager';
+import { LaserHeatModel } from './LaserHeatModel';
 
 const PROJECTILE_POOL_SIZE = 40;
+
+export type LaserHeatState = {
+  readonly heat: number;
+  readonly heatRatio: number;
+  readonly lockout: boolean;
+  readonly fillColor: number;
+  readonly canFirePulse: boolean;
+};
 
 export class WeaponSystem {
   private readonly scene: Phaser.Scene;
@@ -16,6 +25,7 @@ export class WeaponSystem {
   private readonly projectiles: Phaser.Physics.Arcade.Group;
   private readonly pulseWeapon: WeaponDef;
   private readonly missileWeapon: WeaponDef;
+  private readonly heatModel: LaserHeatModel;
   private readonly muzzlePosition: Phaser.Math.Vector2;
   private pulseCooldownRemainingMs: number;
   private missileCooldownRemainingMs: number;
@@ -33,6 +43,7 @@ export class WeaponSystem {
     this.audioManager = audioManager;
     this.pulseWeapon = weapons[starterShip.pulseWeaponId];
     this.missileWeapon = weapons[starterShip.missileWeaponId];
+    this.heatModel = new LaserHeatModel();
     this.muzzlePosition = new Phaser.Math.Vector2();
     this.pulseCooldownRemainingMs = 0;
     this.missileCooldownRemainingMs = 0;
@@ -50,17 +61,29 @@ export class WeaponSystem {
     return this.projectiles;
   }
 
+  public getHeatState(): LaserHeatState {
+    return {
+      heat: this.heatModel.getHeat(),
+      heatRatio: this.heatModel.getHeatRatio(),
+      lockout: this.heatModel.isLockout(),
+      fillColor: this.heatModel.getFillColor(),
+      canFirePulse: this.heatModel.canFirePulse(),
+    };
+  }
+
   public update(delta: number): void {
     if (!this.firingEnabled) {
       return;
     }
+
+    this.heatModel.update(delta, this.inputManager.isFiringPulse());
 
     this.pulseCooldownRemainingMs = Math.max(0, this.pulseCooldownRemainingMs - delta);
     this.missileCooldownRemainingMs = Math.max(0, this.missileCooldownRemainingMs - delta);
 
     if (this.canFirePulse()) {
       this.spawnVolley(this.pulseWeapon);
-      this.pulseCooldownRemainingMs = this.pulseWeapon.intervalMs;
+      this.pulseCooldownRemainingMs = this.heatModel.getPulseIntervalMs();
     }
 
     if (this.canFireMissile()) {
@@ -71,6 +94,7 @@ export class WeaponSystem {
 
   public stop(): void {
     this.firingEnabled = false;
+    this.heatModel.reset();
 
     if (!this.scene.sys.isActive()) {
       return;
@@ -87,7 +111,8 @@ export class WeaponSystem {
     return (
       this.firingEnabled &&
       this.pulseCooldownRemainingMs <= 0 &&
-      this.inputManager.isFiringPulse()
+      this.inputManager.isFiringPulse() &&
+      this.heatModel.canFirePulse()
     );
   }
 
