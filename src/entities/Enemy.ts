@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TextureKeys } from '../config/assetKeys';
-import type { EnemyDef, EnemyId } from '../data/enemies';
+import { EnemyIds, type EnemyDef, type EnemyId } from '../data/enemies';
+import { ramming } from '../data/ramming';
 import type { PlayerProjectileDamage } from '../data/weapons';
 import { HealthBar, enemyHealthBarStyle } from '../ui/HealthBar';
 
@@ -28,6 +29,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private spinRemainingRad: number;
   private spinOmegaRadPerSec: number;
   private ramLockedUntilMs: number;
+  private chargeCooldownMs: number;
+  private chargeRemainingMs: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.StingDart);
@@ -58,6 +61,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.spinRemainingRad = 0;
     this.spinOmegaRadPerSec = 0;
     this.ramLockedUntilMs = 0;
+    this.chargeCooldownMs = 0;
+    this.chargeRemainingMs = 0;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -93,6 +98,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       def.weaveFrequencyMax,
     );
     this.clearRamState();
+    if (this.canCharge()) {
+      this.chargeCooldownMs = this.randomChargeCooldown();
+    }
 
     this.setTexture(def.textureKey);
     this.setScale(def.scale);
@@ -133,11 +141,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const deltaSeconds = delta / 1000;
 
     if (this.knockbackRemainingMs > 0) {
+      this.interruptCharge();
       this.knockbackRemainingMs = Math.max(0, this.knockbackRemainingMs - delta);
       this.tickSpin(deltaSeconds);
       this.syncHealthBar();
       return;
     }
+
+    this.tickCharge(delta);
 
     const offsetX = targetX - this.x;
     const offsetY = targetY - this.y;
@@ -155,11 +166,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.weavePhase += this.weaveFrequency * deltaSeconds;
-    const weave = Math.sin(this.weavePhase) * this.weaveStrength;
+    const charging = this.chargeRemainingMs > 0;
+    const weave = charging ? 0 : Math.sin(this.weavePhase) * this.weaveStrength;
     let approachWeight: number;
-    let orbitWeight = this.orbitStrength;
+    let orbitWeight = charging ? ramming.middleCharge.orbitStrength : this.orbitStrength;
 
-    if (distance > this.approachDistance) {
+    if (charging) {
+      approachWeight = 1;
+    } else if (distance > this.approachDistance) {
       approachWeight = 1;
       orbitWeight *= 0.45;
     } else if (distance < this.retreatDistance) {
@@ -173,7 +187,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const desiredX = towardX * approachWeight + perpendicularX * (orbitWeight + weave);
     const desiredY = towardY * approachWeight + perpendicularY * (orbitWeight + weave);
     const desiredLength = Math.hypot(desiredX, desiredY);
-    const desiredScale = desiredLength > 0.001 ? this.moveSpeed / desiredLength : 0;
+    const speed = charging
+      ? this.moveSpeed * ramming.middleCharge.speedMultiplier
+      : this.moveSpeed;
+    const desiredScale = desiredLength > 0.001 ? speed / desiredLength : 0;
     const targetVelocityX = desiredX * desiredScale;
     const targetVelocityY = desiredY * desiredScale;
     const steeringAlpha = 1 - Math.exp(-this.steeringLerpPerSec * deltaSeconds);
@@ -233,6 +250,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     body.setVelocity(vx, vy);
     this.knockbackRemainingMs = Math.max(0, stunMs);
+    this.interruptCharge();
   }
 
   public applySpin(turns: number, durationMs: number): void {
@@ -306,6 +324,51 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.spinRemainingRad = 0;
     this.spinOmegaRadPerSec = 0;
     this.ramLockedUntilMs = 0;
+    this.chargeCooldownMs = 0;
+    this.chargeRemainingMs = 0;
+  }
+
+  private canCharge(): boolean {
+    return this.definition?.id === EnemyIds.MiddleEnemy;
+  }
+
+  private tickCharge(delta: number): void {
+    if (!this.canCharge()) {
+      return;
+    }
+
+    if (this.chargeRemainingMs > 0) {
+      this.chargeRemainingMs = Math.max(0, this.chargeRemainingMs - delta);
+      if (this.chargeRemainingMs === 0) {
+        this.chargeCooldownMs = this.randomChargeCooldown();
+      }
+      return;
+    }
+
+    this.chargeCooldownMs -= delta;
+    if (this.chargeCooldownMs <= 0) {
+      this.chargeRemainingMs = Phaser.Math.FloatBetween(
+        ramming.middleCharge.durationMinMs,
+        ramming.middleCharge.durationMaxMs,
+      );
+      this.chargeCooldownMs = 0;
+    }
+  }
+
+  private interruptCharge(): void {
+    if (this.chargeRemainingMs <= 0) {
+      return;
+    }
+
+    this.chargeRemainingMs = 0;
+    this.chargeCooldownMs = this.randomChargeCooldown();
+  }
+
+  private randomChargeCooldown(): number {
+    return Phaser.Math.FloatBetween(
+      ramming.middleCharge.cooldownMinMs,
+      ramming.middleCharge.cooldownMaxMs,
+    );
   }
 
   private syncHealthBar(): void {

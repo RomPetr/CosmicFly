@@ -92,6 +92,8 @@ export const SoundKeys = {
   ShipBlink: 'ship-blink',
   GiftPickup: 'gift-pickup',
   ShipRam: 'ship-ram',
+  MeteorRam: 'meteor-ram',
+  MiddleRam: 'middle-ram',
   EngineLow: 'engine-low',
   EngineLarge: 'engine-large',
 } as const;
@@ -110,6 +112,8 @@ export const SoundPaths = {
   [SoundKeys.ShipBlink]: '/assets/audio/player/ship_blink.ogg',
   [SoundKeys.GiftPickup]: '/assets/audio/player/gift_pickup.wav',
   [SoundKeys.ShipRam]: '/assets/audio/player/ship_ram.wav',
+  [SoundKeys.MeteorRam]: '/assets/audio/player/meteor_ram.wav',
+  [SoundKeys.MiddleRam]: '/assets/audio/enemy/middle_ram.wav',
   [SoundKeys.EngineLow]: '/assets/audio/engine/engine_low.ogg',
   [SoundKeys.EngineLarge]: '/assets/audio/engine/engine_large.ogg',
 } as const;

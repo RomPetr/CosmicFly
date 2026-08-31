@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
 import { bases } from '../data/bases';
+import type { RamSoundKind } from '../data/ramming';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
 import { Player, type PlayerHitResult } from '../entities/Player';
@@ -122,7 +123,7 @@ export class GameScene extends Phaser.Scene {
       this.handleEnemyKilled,
       this.handleMeteorHit,
       this.handlePlayerHit,
-      () => this.audioManager.playSfx(SoundKeys.ShipRam),
+      this.handleRamSound,
     );
 
     this.add
@@ -295,6 +296,20 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.meteorDebrisBurst.spawnHit(meteor.x, meteor.y);
+  };
+
+  private handleRamSound = (kind: RamSoundKind): void => {
+    if (kind === 'middle') {
+      this.audioManager.playSfx(SoundKeys.MiddleRam);
+      return;
+    }
+
+    if (kind === 'meteor') {
+      this.audioManager.playSfx(SoundKeys.MeteorRam);
+      return;
+    }
+
+    this.audioManager.playSfx(SoundKeys.ShipRam);
   };
 
   private handlePlayerHit = (result: PlayerHitResult): void => {

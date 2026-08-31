@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
 import type { MeteorDef } from '../data/meteors';
+import { ramming } from '../data/ramming';
 import { MeteorSurfaceLighting } from '../effects/MeteorSurfaceLighting';
 
 const SPRITE_DEPTH = 1;
@@ -10,8 +11,11 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
   private readonly surfaceLighting: MeteorSurfaceLighting;
   private readonly outline: Phaser.GameObjects.Image;
   private hull: number;
-  private contactDamage: number;
   private ownSpeed: number;
+  private colliderRadius: number;
+  private halved: boolean;
+  private knockbackRemainingMs: number;
+  private ramLockedUntilMs: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.AshChunkA);
@@ -26,8 +30,11 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     this.outline.setDepth(SPRITE_DEPTH + OUTLINE_DEPTH_OFFSET);
     this.outline.setVisible(false);
     this.hull = 0;
-    this.contactDamage = 0;
     this.ownSpeed = 0;
+    this.colliderRadius = 0;
+    this.halved = false;
+    this.knockbackRemainingMs = 0;
+    this.ramLockedUntilMs = 0;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -45,8 +52,9 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     const angularVelocity = Phaser.Math.FloatBetween(def.spinMin, def.spinMax) * spinSign;
 
     this.hull = def.maxHull;
-    this.contactDamage = def.contactDamage;
     this.ownSpeed = Phaser.Math.FloatBetween(def.speedMin, def.speedMax);
+    this.colliderRadius = def.colliderRadius;
+    this.clearRamState();
 
     this.setTexture(textureKey);
     this.setScale(scale);
@@ -79,8 +87,13 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     this.surfaceLighting.activate(this.x, this.y, this.displayWidth, this.displayHeight, this.depth);
   }
 
-  public syncFallSpeed(scrollSpeed: number): void {
+  public syncFallSpeed(scrollSpeed: number, delta: number): void {
     if (!this.active) {
+      return;
+    }
+
+    if (this.knockbackRemainingMs > 0) {
+      this.knockbackRemainingMs = Math.max(0, this.knockbackRemainingMs - delta);
       return;
     }
 
@@ -108,11 +121,60 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     return this.hull <= 0;
   }
 
-  public getContactDamage(): number {
-    return this.contactDamage;
+  public applyKnockback(vx: number, vy: number, stunMs: number): void {
+    const body = this.body;
+    if (!(body instanceof Phaser.Physics.Arcade.Body)) {
+      return;
+    }
+
+    body.setVelocity(vx, vy);
+    this.knockbackRemainingMs = Math.max(0, stunMs);
+  }
+
+  public tryLockRam(nowMs: number, cooldownMs: number): boolean {
+    if (nowMs < this.ramLockedUntilMs) {
+      return false;
+    }
+
+    this.ramLockedUntilMs = nowMs + cooldownMs;
+    return true;
+  }
+
+  public shrinkInHalf(): boolean {
+    if (this.halved) {
+      return false;
+    }
+
+    this.halved = true;
+    this.setScale(this.scaleX * ramming.meteorShrinkFactor);
+    this.outline.setScale(this.outline.scaleX * ramming.meteorShrinkFactor);
+
+    const body = this.body;
+    if (body instanceof Phaser.Physics.Arcade.Body) {
+      body.updateFromGameObject();
+    }
+
+    this.surfaceLighting.activate(
+      this.x,
+      this.y,
+      this.displayWidth,
+      this.displayHeight,
+      this.depth,
+    );
+    return true;
+  }
+
+  public isHalved(): boolean {
+    return this.halved;
+  }
+
+  public getWorldColliderRadius(): number {
+    return this.colliderRadius * Math.abs(this.scaleX);
   }
 
   public deactivate(): void {
+    this.clearRamState();
+
     if (!this.scene.sys.isActive()) {
       return;
     }
@@ -125,6 +187,12 @@ export class Meteor extends Phaser.Physics.Arcade.Sprite {
     this.outline.setVisible(false);
     this.surfaceLighting.deactivate();
     this.disableBody(true, true);
+  }
+
+  private clearRamState(): void {
+    this.halved = false;
+    this.knockbackRemainingMs = 0;
+    this.ramLockedUntilMs = 0;
   }
 
   private syncOutline(): void {

@@ -132,6 +132,21 @@ Royalty-free for personal and commercial game projects; raw files may not be res
 Used files:
 - `Boing_Bounce/SFX_Boing_Bounce_2.wav` → `public/assets/audio/player/gift_pickup.wav` — gift pickup SFX.
 - `Cash_Register/SFX_Cash_Register_Buy_Click_1.wav` → `public/assets/audio/player/ship_ram.wav` — ship ram (hull contact) SFX.
+- `Footstep/Huge/SFX_Movement_Footstep_Huge_1.wav` → `public/assets/audio/player/meteor_ram.wav` — meteor ram SFX (used 2026-08-30).
+
+## Mixkit — metal tool falling
+
+Source:
+`free_assets/sounds/mixkit-metal-tool-falling-820.wav` (Mixkit)
+
+Obtained:
+2026-08-30
+
+License:
+Mixkit sound, used as middle-enemy ram SFX. License terms were not copied into the repo; not claimed as CC0.
+
+Used files:
+- `mixkit-metal-tool-falling-820.wav` → `public/assets/audio/enemy/middle_ram.wav` — Middle Enemy ram SFX.
 
 ## Kenney UI Pack Sci-Fi
 

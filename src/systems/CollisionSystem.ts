@@ -2,10 +2,13 @@ import Phaser from 'phaser';
 import { starterShip } from '../data/ships';
 import { EnemyIds, type EnemyDef } from '../data/enemies';
 import {
+  bubbleMiddleEnemyRamDamage,
   bubbleSmallEnemyRamDamage,
   enemyRamDamage,
+  playerMiddleRamDamage,
   playerRamDamage,
   ramming,
+  type RamSoundKind,
 } from '../data/ramming';
 import { Enemy } from '../entities/Enemy';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
@@ -23,7 +26,7 @@ export class CollisionSystem {
   private readonly onEnemyKilled: (enemy: Enemy) => void;
   private readonly onMeteorHit: (meteor: Meteor, destroyed: boolean) => void;
   private readonly onPlayerHit: (result: PlayerHitResult) => void;
-  private readonly onShipRam: () => void;
+  private readonly onRamSound: (kind: RamSoundKind) => void;
   private readonly colliders: Phaser.Physics.Arcade.Collider[];
   private enabled: boolean;
 
@@ -37,14 +40,14 @@ export class CollisionSystem {
     onEnemyKilled: (enemy: Enemy) => void,
     onMeteorHit: (meteor: Meteor, destroyed: boolean) => void,
     onPlayerHit: (result: PlayerHitResult) => void,
-    onShipRam: () => void,
+    onRamSound: (kind: RamSoundKind) => void,
   ) {
     this.scene = scene;
     this.player = player;
     this.onEnemyKilled = onEnemyKilled;
     this.onMeteorHit = onMeteorHit;
     this.onPlayerHit = onPlayerHit;
-    this.onShipRam = onShipRam;
+    this.onRamSound = onRamSound;
     this.enabled = true;
     this.colliders = [
       scene.physics.add.overlap(
@@ -182,12 +185,75 @@ export class CollisionSystem {
       return;
     }
 
-    const damage = meteor.getContactDamage();
-    meteor.deactivate();
+    const playerSprite = this.player.getSprite();
+    let nx = meteor.x - playerSprite.x;
+    let ny = meteor.y - playerSprite.y;
+    const length = Math.hypot(nx, ny);
+    if (length < ZERO_LENGTH) {
+      nx = 0;
+      ny = -1;
+    } else {
+      nx /= length;
+      ny /= length;
+    }
 
-    const result = this.player.takeHit(damage, undefined, 'meteor');
-    if (result.applied) {
-      this.onPlayerHit(result);
+    this.separateCircles(
+      playerSprite,
+      meteor,
+      nx,
+      ny,
+      starterShip.colliderRadius,
+      meteor.getWorldColliderRadius(),
+      length < ZERO_LENGTH ? 0 : length,
+    );
+
+    if (!meteor.tryLockRam(this.scene.time.now, ramming.contactCooldownMs)) {
+      return;
+    }
+
+    this.onRamSound('meteor');
+
+    if (this.player.hasShield()) {
+      this.applyShieldMeteorRam(meteor, nx, ny);
+      return;
+    }
+
+    this.applyUnshieldedMeteorRam(meteor, nx, ny);
+  }
+
+  private applyShieldMeteorRam(meteor: Meteor, nx: number, ny: number): void {
+    this.player.applyKnockback(
+      -nx * ramming.bubblePlayerImpulse,
+      -ny * ramming.bubblePlayerImpulse,
+    );
+    this.onPlayerHit(this.player.reportShieldRam());
+    this.onMeteorHit(meteor, true);
+    meteor.deactivate();
+  }
+
+  private applyUnshieldedMeteorRam(meteor: Meteor, nx: number, ny: number): void {
+    this.player.applyKnockback(-nx * ramming.playerImpulse, -ny * ramming.playerImpulse);
+    meteor.applyKnockback(
+      nx * ramming.enemyImpulse,
+      ny * ramming.enemyImpulse,
+      ramming.knockbackStunMs,
+    );
+
+    const shrunk = meteor.shrinkInHalf();
+    if (!shrunk) {
+      this.onMeteorHit(meteor, true);
+      meteor.deactivate();
+    } else {
+      this.onMeteorHit(meteor, false);
+    }
+
+    const playerResult = this.player.takeHit(
+      playerRamDamage(starterShip.maxHealth),
+      undefined,
+      'ram',
+    );
+    if (playerResult.applied) {
+      this.onPlayerHit(playerResult);
     }
   }
 
@@ -264,7 +330,8 @@ export class CollisionSystem {
       return;
     }
 
-    this.onShipRam();
+    const kind: RamSoundKind = def.id === EnemyIds.MiddleEnemy ? 'middle' : 'small';
+    this.onRamSound(kind);
 
     if (this.player.hasShield()) {
       this.applyShieldRam(enemy, def, nx, ny);
@@ -300,9 +367,16 @@ export class CollisionSystem {
     enemy.applyKnockback(
       nx * ramming.bubbleMiddleEnemyImpulse,
       ny * ramming.bubbleMiddleEnemyImpulse,
-      ramming.knockbackStunMs,
+      ramming.bubbleMiddleKnockbackStunMs,
     );
+    const yawDeg = Phaser.Math.Between(10, 120);
+    const yawSign = Phaser.Math.RND.pick([-1, 1]);
+    enemy.applySpin((yawDeg / 360) * yawSign, ramming.bubbleMiddleKnockbackStunMs);
+    const killed = enemy.takeHullDamage(bubbleMiddleEnemyRamDamage(def.maxHull));
     this.onPlayerHit(this.player.reportShieldRam());
+    if (killed) {
+      this.onEnemyKilled(enemy);
+    }
   }
 
   private applyUnshieldedRam(enemy: Enemy, def: EnemyDef, nx: number, ny: number): void {
@@ -313,11 +387,11 @@ export class CollisionSystem {
       ramming.knockbackStunMs,
     );
 
-    const playerResult = this.player.takeHit(
-      playerRamDamage(starterShip.maxHealth),
-      undefined,
-      'ram',
-    );
+    const playerDamage =
+      def.id === EnemyIds.MiddleEnemy
+        ? playerMiddleRamDamage(starterShip.maxHealth)
+        : playerRamDamage(starterShip.maxHealth);
+    const playerResult = this.player.takeHit(playerDamage, undefined, 'ram');
     const enemyKilled = enemy.takeHullDamage(enemyRamDamage(def.maxHull));
 
     if (enemyKilled) {
@@ -330,14 +404,14 @@ export class CollisionSystem {
 
   private separateCircles(
     playerSprite: Phaser.Physics.Arcade.Sprite,
-    enemy: Enemy,
+    other: Phaser.Physics.Arcade.Sprite,
     nx: number,
     ny: number,
     playerRadius: number,
-    enemyRadius: number,
+    otherRadius: number,
     currentDistance: number,
   ): void {
-    const minDistance = playerRadius + enemyRadius + ramming.separatePaddingPx;
+    const minDistance = playerRadius + otherRadius + ramming.separatePaddingPx;
     const overlap = minDistance - currentDistance;
     if (overlap <= 0) {
       return;
@@ -346,17 +420,17 @@ export class CollisionSystem {
     const half = overlap * 0.5;
     playerSprite.x -= nx * half;
     playerSprite.y -= ny * half;
-    enemy.x += nx * half;
-    enemy.y += ny * half;
+    other.x += nx * half;
+    other.y += ny * half;
 
     const playerBody = playerSprite.body;
     if (playerBody instanceof Phaser.Physics.Arcade.Body) {
       playerBody.updateFromGameObject();
     }
 
-    const enemyBody = enemy.body;
-    if (enemyBody instanceof Phaser.Physics.Arcade.Body) {
-      enemyBody.updateFromGameObject();
+    const otherBody = other.body;
+    if (otherBody instanceof Phaser.Physics.Arcade.Body) {
+      otherBody.updateFromGameObject();
     }
   }
 
