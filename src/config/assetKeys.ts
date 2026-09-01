@@ -27,7 +27,6 @@ export const TextureKeys = {
   GiftHealth: 'gift-health',
   GiftShield: 'gift-shield',
   ShieldAura: 'shield-aura',
-  MissileSpark: 'missile-spark',
 } as const;
 
 export type TextureKey = (typeof TextureKeys)[keyof typeof TextureKeys];

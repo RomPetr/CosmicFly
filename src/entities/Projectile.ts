@@ -8,6 +8,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   private lifetimeMs: number;
   private damage: PlayerProjectileDamage;
   private sparkTrail: MissileSparkTrail | null;
+  private travelRotation: number;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.PulseBolt);
@@ -23,6 +24,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
       baseDamage: 0,
     };
     this.sparkTrail = null;
+    this.travelRotation = 0;
 
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
@@ -65,6 +67,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.elapsedMs = 0;
     this.lifetimeMs = lifetimeMs;
     this.damage = damage;
+    this.travelRotation = rotation;
 
     if (damage.sourceId === WeaponIds.FlareMissiles) {
       this.startSparkTrail(rotation);
@@ -75,6 +78,18 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
 
   public getDamage(): PlayerProjectileDamage {
     return this.damage;
+  }
+
+  public syncSparks(delta: number): void {
+    if (!this.active || this.sparkTrail === null) {
+      return;
+    }
+
+    if (this.damage.sourceId !== WeaponIds.FlareMissiles) {
+      return;
+    }
+
+    this.sparkTrail.update(delta, this, this.travelRotation);
   }
 
   public preUpdate(time: number, delta: number): void {

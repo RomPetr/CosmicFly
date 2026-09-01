@@ -99,7 +99,7 @@ Used files:
 Not third-party files. Generated in the browser at preload / play time.
 
 - Overheat klaxon — Web Audio oscillator (square, 880/660 Hz), no sample file. Plays during pulse-beam lockout.
-- Missile spark texture — Phaser graphics 6×6 soft amber point (`TextureKeys.MissileSpark`), used by flare-missile tail emitters. Not in `TexturePaths`.
+- Missile nozzle sparks — runtime Phaser ADD circles (no texture file), Ember campfire palette (`#fff6e0` / `#ffd24a` / `#ffb04a` / `#ff7a2a` / `#ff3b2a`).
 
 ## Timberlate007 — Free Shoot`em Up starter Asset Pack
 

@@ -90,6 +90,12 @@ export class WeaponSystem {
       this.spawnVolley(this.missileWeapon);
       this.missileCooldownRemainingMs = this.missileWeapon.intervalMs;
     }
+
+    for (const child of this.projectiles.getChildren()) {
+      if (child instanceof Projectile) {
+        child.syncSparks(delta);
+      }
+    }
   }
 
   public stop(): void {

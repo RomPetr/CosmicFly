@@ -1,80 +1,156 @@
 import Phaser from 'phaser';
-import { TextureKeys } from '../config/assetKeys';
+import { missileSparkColors, missileSparks } from '../data/missileSparks';
 
-const FOLLOW_OFFSET_PX = 11;
-const SPARK_SPREAD_DEG = 18;
-const SPARK_DEPTH = 1;
-const LIFESPAN_MIN_MS = 180;
-const LIFESPAN_MAX_MS = 320;
-const SPEED_MIN = 40;
-const SPEED_MAX = 90;
-const SCALE_START = 0.45;
-const FREQUENCY_MS = 16;
-const MAX_ALIVE_PARTICLES = 24;
-const COLOR_START = 0xffee88;
-const COLOR_END = 0xff6622;
+type Ember = {
+  circle: Phaser.GameObjects.Arc;
+  vx: number;
+  vy: number;
+  lifeMs: number;
+  elapsedMs: number;
+  startRadius: number;
+};
 
+type SparkBand = {
+  readonly countMin: number;
+  readonly countMax: number;
+  readonly speedMin: number;
+  readonly speedMax: number;
+  readonly lifeMinMs: number;
+  readonly lifeMaxMs: number;
+  readonly radiusMin: number;
+  readonly radiusMax: number;
+};
+
+/**
+ * Campfire embers from a missile nozzle. Additive circles, not ParticleEmitter:
+ * Phaser particles + canvas textures were invisible in this project.
+ */
 export class MissileSparkTrail {
   private readonly scene: Phaser.Scene;
-  private emitter: Phaser.GameObjects.Particles.ParticleEmitter | null;
+  private readonly sparks: Ember[];
+  private active: boolean;
+  private streamAccMs: number;
+  private emberAccMs: number;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    this.emitter = null;
+    this.sparks = [];
+    this.active = false;
+    this.streamAccMs = 0;
+    this.emberAccMs = 0;
   }
 
   public start(target: Phaser.GameObjects.Sprite, travelRotation: number): void {
-    if (!this.scene.sys.isActive() || !this.scene.textures.exists(TextureKeys.MissileSpark)) {
+    this.clearSparks();
+    this.active = true;
+    this.streamAccMs = 0;
+    this.emberAccMs = 0;
+    this.spawnBand(target, travelRotation, missileSparks.burst, Math.PI * 2);
+  }
+
+  public update(delta: number, target: Phaser.GameObjects.Sprite, travelRotation: number): void {
+    if (!this.active || !this.scene.sys.isActive()) {
       return;
     }
 
-    if (this.emitter === null) {
-      this.emitter = this.scene.add.particles(target.x, target.y, TextureKeys.MissileSpark, {
-        blendMode: Phaser.BlendModes.ADD,
-        lifespan: { min: LIFESPAN_MIN_MS, max: LIFESPAN_MAX_MS },
-        speed: { min: SPEED_MIN, max: SPEED_MAX },
-        scale: { start: SCALE_START, end: 0 },
-        color: [COLOR_START, COLOR_END],
-        frequency: FREQUENCY_MS,
-        quantity: 1,
-        gravityY: 0,
-        emitting: false,
-        maxAliveParticles: MAX_ALIVE_PARTICLES,
-      });
-      this.emitter.setDepth(SPARK_DEPTH);
+    this.streamAccMs += delta;
+    this.emberAccMs += delta;
+
+    while (this.streamAccMs >= missileSparks.stream.intervalMs) {
+      this.streamAccMs -= missileSparks.stream.intervalMs;
+      this.spawnBand(target, travelRotation, missileSparks.stream, missileSparks.stream.spreadRad);
     }
 
-    this.aimBehind(target, travelRotation);
-    this.emitter.start();
+    while (this.emberAccMs >= missileSparks.ember.intervalMs) {
+      this.emberAccMs -= missileSparks.ember.intervalMs;
+      this.spawnBand(target, travelRotation, missileSparks.ember, Math.PI * 2);
+    }
+
+    this.advance(delta);
   }
 
   public stop(): void {
-    const emitter = this.emitter;
-    if (emitter === null) {
-      return;
-    }
-
-    if (!this.scene.sys.isActive()) {
-      this.emitter = null;
-      return;
-    }
-
-    emitter.stop(true);
-    emitter.stopFollow();
+    this.active = false;
+    this.streamAccMs = 0;
+    this.emberAccMs = 0;
+    this.clearSparks();
   }
 
-  private aimBehind(target: Phaser.GameObjects.Sprite, travelRotation: number): void {
-    const emitter = this.emitter;
-    if (emitter === null) {
+  private spawnBand(
+    target: Phaser.GameObjects.Sprite,
+    travelRotation: number,
+    band: SparkBand,
+    spreadRad: number,
+  ): void {
+    if (!this.scene.sys.isActive()) {
       return;
     }
 
+    const nozzle = this.nozzleWorld(target, travelRotation);
+    const count = Phaser.Math.Between(band.countMin, band.countMax);
     const back = travelRotation + Math.PI;
-    const offsetX = Math.cos(back) * FOLLOW_OFFSET_PX;
-    const offsetY = Math.sin(back) * FOLLOW_OFFSET_PX;
-    const angleDeg = Phaser.Math.RadToDeg(back);
 
-    emitter.startFollow(target, offsetX, offsetY);
-    emitter.setEmitterAngle({ min: angleDeg - SPARK_SPREAD_DEG, max: angleDeg + SPARK_SPREAD_DEG });
+    for (let index = 0; index < count; index += 1) {
+      const angle = back + Phaser.Math.FloatBetween(-spreadRad, spreadRad);
+      const speed = Phaser.Math.FloatBetween(band.speedMin, band.speedMax);
+      const radius = Phaser.Math.FloatBetween(band.radiusMin, band.radiusMax);
+      const color = missileSparkColors[Phaser.Math.Between(0, missileSparkColors.length - 1)] ?? 0xffb04a;
+      const circle = this.scene.add.circle(nozzle.x, nozzle.y, radius, color, 1);
+      circle.setDepth(missileSparks.depth).setBlendMode(Phaser.BlendModes.ADD);
+
+      this.sparks.push({
+        circle,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        lifeMs: Phaser.Math.FloatBetween(band.lifeMinMs, band.lifeMaxMs),
+        elapsedMs: 0,
+        startRadius: radius,
+      });
+    }
+  }
+
+  private advance(delta: number): void {
+    const dt = delta / 1000;
+
+    for (let index = this.sparks.length - 1; index >= 0; index -= 1) {
+      const spark = this.sparks[index];
+      if (spark === undefined) {
+        continue;
+      }
+
+      spark.elapsedMs += delta;
+      const t = Math.min(1, spark.elapsedMs / spark.lifeMs);
+      spark.circle.x += spark.vx * dt;
+      spark.circle.y += spark.vy * dt;
+      spark.circle.setRadius(spark.startRadius * (1 - t * 0.85));
+      spark.circle.setAlpha(1 - t);
+
+      if (spark.elapsedMs >= spark.lifeMs) {
+        spark.circle.destroy();
+        this.sparks.splice(index, 1);
+      }
+    }
+  }
+
+  private nozzleWorld(
+    target: Phaser.GameObjects.Sprite,
+    travelRotation: number,
+  ): { x: number; y: number } {
+    const back = travelRotation + Math.PI;
+    const distance = target.displayHeight * missileSparks.nozzleOffsetRatio;
+    return {
+      x: target.x + Math.cos(back) * distance,
+      y: target.y + Math.sin(back) * distance,
+    };
+  }
+
+  private clearSparks(): void {
+    if (this.scene.sys.isActive()) {
+      for (const spark of this.sparks) {
+        spark.circle.destroy();
+      }
+    }
+
+    this.sparks.length = 0;
   }
 }
