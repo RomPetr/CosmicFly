@@ -1,0 +1,18 @@
+export const stage2Beam = {
+  textureWidth: 96,
+  textureHeight: 10,
+  bodyColor: 0x3ecfbf,
+  coreColor: 0xe8fff8,
+  trailColor: 0xcf3e62,
+  trailIntervalMs: 16,
+  trailCountMin: 1,
+  trailCountMax: 2,
+  trailLifeMinMs: 80,
+  trailLifeMaxMs: 140,
+  trailRadiusMin: 3,
+  trailRadiusMax: 6.5,
+  trailSpeedMin: 18,
+  trailSpeedMax: 48,
+  trailSpreadRad: 0.45,
+  depth: 3,
+} as const;

@@ -313,6 +313,10 @@ export class AudioManager {
       return VOLUME_MIDDLE_ENEMY_BLASTER;
     }
 
+    if (key === SoundKeys.Stage2Lance) {
+      return VOLUME_MIDDLE_ENEMY_BLASTER;
+    }
+
     if (key === SoundKeys.PlayerHit) {
       return VOLUME_PLAYER_HIT;
     }

@@ -9,6 +9,11 @@
 | Фон | `#0b0d12` |
 | Ember (янтарь корпуса и тёплого ядра) | `#ffb04a` |
 | Pulse-beam / HUD cyan | `#5fd4ff` / `#7fd4ff` |
+| Sting Dart | `#145c38` |
+| Middle Enemy Stage 1 | `#754a8f` |
+| Middle Enemy Stage 2 hull / shade / white | `#2ec4b6` / `#145a62` / `#eef7ff` |
+| Stage 2 lance body / core | `#3ecfbf` / `#e8fff8` |
+| Stage 2 lance inverse trail | `#cf3e62` |
 
 Индикатор тепла pulse-beam (заливка по `heat / 100`):
 

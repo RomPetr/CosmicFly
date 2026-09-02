@@ -3,6 +3,7 @@ import {
   EnemyIds,
   enemies,
   middleEnemy,
+  middleEnemyStage2,
   stingDartEnemy,
   type EnemyDef,
   type EnemyId,
@@ -27,6 +28,8 @@ export class SpawnSystem {
   private smallRespawnTimerMs: number;
   private middleRespawnRemainingMs: number | null;
   private middleSpawnedOnce: boolean;
+  private stage2RespawnRemainingMs: number | null;
+  private stage2SpawnedOnce: boolean;
 
   public constructor(scene: Phaser.Scene, player: Player) {
     this.scene = scene;
@@ -36,6 +39,8 @@ export class SpawnSystem {
     this.smallRespawnTimerMs = 0;
     this.middleRespawnRemainingMs = null;
     this.middleSpawnedOnce = false;
+    this.stage2RespawnRemainingMs = null;
+    this.stage2SpawnedOnce = false;
 
     this.enemies = scene.physics.add.group({
       classType: Enemy,
@@ -71,6 +76,7 @@ export class SpawnSystem {
 
     this.updateSmallSpawns(delta);
     this.updateMiddleSpawn(delta, distanceKm);
+    this.updateStage2MiddleSpawn(delta, distanceKm);
   }
 
   public onEnemyKilled(enemy: Enemy): void {
@@ -83,6 +89,12 @@ export class SpawnSystem {
     if (enemyId === EnemyIds.MiddleEnemy) {
       this.middleSpawnedOnce = true;
       this.middleRespawnRemainingMs = middleEnemy.spawn.respawnDelayMs;
+      return;
+    }
+
+    if (enemyId === EnemyIds.MiddleEnemyStage2) {
+      this.stage2SpawnedOnce = true;
+      this.stage2RespawnRemainingMs = middleEnemyStage2.spawn.respawnDelayMs;
     }
   }
 
@@ -142,6 +154,29 @@ export class SpawnSystem {
     }
   }
 
+  private updateStage2MiddleSpawn(delta: number, distanceKm: number): void {
+    if (
+      distanceKm < middleEnemyStage2.spawn.minDistanceKm ||
+      this.countActiveById(EnemyIds.MiddleEnemyStage2) >= middleEnemyStage2.spawn.maxAlive
+    ) {
+      return;
+    }
+
+    if (!this.stage2SpawnedOnce) {
+      this.stage2SpawnedOnce = this.spawnEnemy(middleEnemyStage2);
+      return;
+    }
+
+    if (this.stage2RespawnRemainingMs === null) {
+      return;
+    }
+
+    this.stage2RespawnRemainingMs = Math.max(0, this.stage2RespawnRemainingMs - delta);
+    if (this.stage2RespawnRemainingMs === 0 && this.spawnEnemy(middleEnemyStage2)) {
+      this.stage2RespawnRemainingMs = null;
+    }
+  }
+
   private spawnEnemy(def: EnemyDef): boolean {
     if (!this.enabled || this.countActiveById(def.id) >= def.spawn.maxAlive) {
       return false;
@@ -171,6 +206,8 @@ export class SpawnSystem {
     this.smallRespawnTimerMs = 0;
     this.middleRespawnRemainingMs = null;
     this.middleSpawnedOnce = false;
+    this.stage2RespawnRemainingMs = null;
+    this.stage2SpawnedOnce = false;
   }
 
   private pickSpawnPosition(): Phaser.Math.Vector2 {

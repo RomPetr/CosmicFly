@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
+import { meteorHullDamage } from '../data/enemyHull';
+import { EnemyIds, isMiddleRamEnemy, type EnemyDef } from '../data/enemies';
 import { starterShip } from '../data/ships';
 import type { WeaponId } from '../data/weapons';
-import { EnemyIds, type EnemyDef } from '../data/enemies';
 import {
   bubbleMiddleEnemyRamDamage,
   bubbleSmallEnemyRamDamage,
@@ -87,6 +88,13 @@ export class CollisionSystem {
         enemies,
         this.handlePlayerEnemy,
         this.canPlayerRamEnemy,
+        this,
+      ),
+      scene.physics.add.overlap(
+        enemies,
+        meteors,
+        this.handleEnemyMeteor,
+        this.canEnemyHitMeteor,
         this,
       ),
     ];
@@ -263,6 +271,81 @@ export class CollisionSystem {
     }
   }
 
+  private canEnemyHitMeteor(object1: PhysicsObject, object2: PhysicsObject): boolean {
+    if (!this.enabled) {
+      return false;
+    }
+
+    const enemy = this.asEnemy(object1) ?? this.asEnemy(object2);
+    const meteor = this.asMeteor(object1) ?? this.asMeteor(object2);
+    return (
+      enemy !== undefined &&
+      meteor !== undefined &&
+      enemy.active &&
+      meteor.active &&
+      enemy.getEnemyId() === EnemyIds.MiddleEnemyStage2
+    );
+  }
+
+  private handleEnemyMeteor(object1: PhysicsObject, object2: PhysicsObject): void {
+    const enemy = this.asEnemy(object1) ?? this.asEnemy(object2);
+    const meteor = this.asMeteor(object1) ?? this.asMeteor(object2);
+    if (enemy === undefined || meteor === undefined || !enemy.active || !meteor.active) {
+      return;
+    }
+
+    const def = enemy.getDefinition();
+    if (def === null) {
+      return;
+    }
+
+    let nx = meteor.x - enemy.x;
+    let ny = meteor.y - enemy.y;
+    const length = Math.hypot(nx, ny);
+    if (length < ZERO_LENGTH) {
+      nx = 0;
+      ny = -1;
+    } else {
+      nx /= length;
+      ny /= length;
+    }
+
+    this.separateCircles(
+      enemy,
+      meteor,
+      nx,
+      ny,
+      def.colliderRadius,
+      meteor.getWorldColliderRadius(),
+      length < ZERO_LENGTH ? 0 : length,
+    );
+
+    const now = this.scene.time.now;
+    if (
+      !enemy.tryLockRam(now, ramming.contactCooldownMs) ||
+      !meteor.tryLockRam(now, ramming.contactCooldownMs)
+    ) {
+      return;
+    }
+
+    this.onRamSound('meteor');
+    enemy.applyKnockback(-nx * ramming.enemyImpulse, -ny * ramming.enemyImpulse, ramming.knockbackStunMs);
+    meteor.applyKnockback(nx * ramming.enemyImpulse, ny * ramming.enemyImpulse, ramming.knockbackStunMs);
+
+    const killed = enemy.takeHullDamage(meteorHullDamage(def.maxHull));
+    const shrunk = meteor.shrinkInHalf();
+    if (!shrunk) {
+      this.onMeteorHit(meteor, true);
+      meteor.deactivate();
+    } else {
+      this.onMeteorHit(meteor, false);
+    }
+
+    if (killed) {
+      this.onEnemyKilled(enemy);
+    }
+  }
+
   private canEnemyProjectileHitPlayer(
     object1: PhysicsObject,
     object2: PhysicsObject,
@@ -336,7 +419,7 @@ export class CollisionSystem {
       return;
     }
 
-    const kind: RamSoundKind = def.id === EnemyIds.MiddleEnemy ? 'middle' : 'small';
+    const kind: RamSoundKind = isMiddleRamEnemy(def.id) ? 'middle' : 'small';
     this.onRamSound(kind);
 
     if (this.player.hasShield()) {
@@ -393,10 +476,9 @@ export class CollisionSystem {
       ramming.knockbackStunMs,
     );
 
-    const playerDamage =
-      def.id === EnemyIds.MiddleEnemy
-        ? playerMiddleRamDamage(starterShip.maxHealth)
-        : playerRamDamage(starterShip.maxHealth);
+    const playerDamage = isMiddleRamEnemy(def.id)
+      ? playerMiddleRamDamage(starterShip.maxHealth)
+      : playerRamDamage(starterShip.maxHealth);
     const playerResult = this.player.takeHit(playerDamage, undefined, 'ram');
     const enemyKilled = enemy.takeHullDamage(enemyRamDamage(def.maxHull));
 

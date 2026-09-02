@@ -16,7 +16,7 @@ export class WalletManager {
       return;
     }
 
-    if (enemyId === EnemyIds.MiddleEnemy) {
+    if (enemyId === EnemyIds.MiddleEnemy || enemyId === EnemyIds.MiddleEnemyStage2) {
       this.rubies += 1;
     }
   }

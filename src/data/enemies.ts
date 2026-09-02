@@ -5,6 +5,7 @@ import { WeaponIds, type WeaponId } from './weapons';
 export const EnemyIds = {
   StingDart: 'sting-dart',
   MiddleEnemy: 'middle-enemy',
+  MiddleEnemyStage2: 'middle-enemy-stage-2',
 } as const;
 
 export type EnemyId = (typeof EnemyIds)[keyof typeof EnemyIds];
@@ -99,7 +100,43 @@ export const middleEnemy: EnemyDef = {
   },
 };
 
+export const middleEnemyStage2: EnemyDef = {
+  id: EnemyIds.MiddleEnemyStage2,
+  textureKey: TextureKeys.MiddleEnemyStage2,
+  weaponId: EnemyWeaponIds.Stage2Lance,
+  scale: 0.42,
+  angleOffset: -Math.PI / 2,
+  maxHull: 5,
+  speed: 120,
+  colliderRadius: 16,
+  tint: 0xffffff,
+  preferredDistance: 220,
+  retreatDistance: 130,
+  approachDistance: 300,
+  orbitStrength: 0.45,
+  weaveStrength: 0.18,
+  weaveFrequencyMin: 0.55,
+  weaveFrequencyMax: 1.1,
+  steeringLerpPerSec: 2.5,
+  fireIntervalMinMs: 1800,
+  fireIntervalMaxMs: 4000,
+  incomingDamageMultipliers: {
+    [WeaponIds.PulseBeam]: 1,
+    [WeaponIds.FlareMissiles]: 1,
+  },
+  spawn: {
+    maxAlive: 1,
+    respawnDelayMs: 20000,
+    minDistanceKm: 100,
+  },
+};
+
 export const enemies: Record<EnemyId, EnemyDef> = {
   [EnemyIds.StingDart]: stingDartEnemy,
   [EnemyIds.MiddleEnemy]: middleEnemy,
+  [EnemyIds.MiddleEnemyStage2]: middleEnemyStage2,
 };
+
+export function isMiddleRamEnemy(id: EnemyId | null): boolean {
+  return id === EnemyIds.MiddleEnemy || id === EnemyIds.MiddleEnemyStage2;
+}

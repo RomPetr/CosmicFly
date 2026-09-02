@@ -3,6 +3,7 @@ import { SoundKeys, TextureKeys, type SoundKey, type TextureKey } from '../confi
 export const EnemyWeaponIds = {
   StingDartBlaster: 'sting-dart-blaster',
   MiddleEnemyBlaster: 'middle-enemy-blaster',
+  Stage2Lance: 'stage2-lance',
 } as const;
 
 export type EnemyWeaponId = (typeof EnemyWeaponIds)[keyof typeof EnemyWeaponIds];
@@ -58,7 +59,22 @@ export const middleEnemyBlaster: EnemyWeaponDef = {
   ],
 };
 
+export const stage2Lance: EnemyWeaponDef = {
+  id: EnemyWeaponIds.Stage2Lance,
+  textureKey: TextureKeys.Stage2Beam,
+  soundKey: SoundKeys.Stage2Lance,
+  damage: 10,
+  projectileSpeed: 300,
+  lifetimeMs: 1800,
+  aimSpreadRadians: 0.02,
+  poolSize: 4,
+  scale: 1,
+  rotationJitterAmplitude: 0.08,
+  muzzleOffsets: [{ forward: 22, lateral: 0 }],
+};
+
 export const enemyWeapons: Record<EnemyWeaponId, EnemyWeaponDef> = {
   [EnemyWeaponIds.StingDartBlaster]: stingDartBlaster,
   [EnemyWeaponIds.MiddleEnemyBlaster]: middleEnemyBlaster,
+  [EnemyWeaponIds.Stage2Lance]: stage2Lance,
 };

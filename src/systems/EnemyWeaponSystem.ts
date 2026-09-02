@@ -48,6 +48,12 @@ export class EnemyWeaponSystem {
         this.fireFrom(child);
       }
     }
+
+    for (const child of this.projectiles.getChildren()) {
+      if (child instanceof EnemyProjectile && child.active) {
+        child.tickTrail(delta);
+      }
+    }
   }
 
   public stop(): void {

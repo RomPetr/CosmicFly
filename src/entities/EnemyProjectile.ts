@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
+import { BeamInverseTrail } from '../effects/BeamInverseTrail';
 
 export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
+  private readonly trail: BeamInverseTrail;
   private elapsedMs = 0;
   private lifetimeMs = 0;
   private damage = 0;
   private rotationJitterAmplitude = 0;
+  private fadeOut = false;
+  private inverseTrail = false;
 
   public constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, TextureKeys.EnemyBolt);
@@ -14,6 +18,7 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
       throw new Error(`Texture "${TextureKeys.EnemyBolt}" is not registered`);
     }
 
+    this.trail = new BeamInverseTrail(scene);
     this.setOrigin(0.5, 0.5);
     this.setActive(false);
     this.setVisible(false);
@@ -34,8 +39,13 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
       return false;
     }
 
+    this.fadeOut = textureKey === TextureKeys.Stage2Beam;
+    this.inverseTrail = this.fadeOut;
+    this.trail.reset();
+
     this.setTexture(textureKey);
     this.setScale(scale);
+    this.setAlpha(1);
     this.enableBody(true, x, y, true, true);
     this.setRotation(rotation);
     this.setDepth(2);
@@ -67,6 +77,14 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     return this.rotationJitterAmplitude;
   }
 
+  public tickTrail(delta: number): void {
+    if (!this.active || !this.inverseTrail) {
+      return;
+    }
+
+    this.trail.update(delta, this.x, this.y, this.rotation);
+  }
+
   public preUpdate(time: number, delta: number): void {
     if (!this.active || !this.scene.sys.isActive()) {
       return;
@@ -75,12 +93,21 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     super.preUpdate(time, delta);
     this.elapsedMs += delta;
 
+    if (this.fadeOut && this.lifetimeMs > 0) {
+      this.setAlpha(Math.max(0, 1 - this.elapsedMs / this.lifetimeMs));
+    }
+
     if (this.elapsedMs >= this.lifetimeMs || this.isOutOfWorld()) {
       this.deactivate();
     }
   }
 
   public deactivate(): void {
+    this.trail.stop();
+    this.fadeOut = false;
+    this.inverseTrail = false;
+    this.setAlpha(1);
+
     if (!this.scene.sys.isActive()) {
       return;
     }

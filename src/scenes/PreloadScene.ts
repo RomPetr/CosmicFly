@@ -12,6 +12,8 @@ import {
   type TextureKey,
 } from '../config/assetKeys';
 import { shieldAuraConfig } from '../data/gifts';
+import { stage2Beam } from '../data/stage2Beam';
+import { remapStage2Pixel } from '../data/stage2MiddleVisual';
 import { starfieldConfig, type StarLayerConfig } from '../data/starfield';
 
 const PROGRESS_BAR_WIDTH = 320;
@@ -26,6 +28,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.PlayerShip, TexturePaths[TextureKeys.PlayerShip]);
     this.load.image(TextureKeys.StingDart, TexturePaths[TextureKeys.StingDart]);
     this.load.image(TextureKeys.MiddleEnemy, TexturePaths[TextureKeys.MiddleEnemy]);
+    this.load.image(TextureKeys.MiddleEnemyStage2, TexturePaths[TextureKeys.MiddleEnemyStage2]);
     this.load.image(TextureKeys.FlareMissile, TexturePaths[TextureKeys.FlareMissile]);
     this.load.image(TextureKeys.AshChunkA, TexturePaths[TextureKeys.AshChunkA]);
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
@@ -80,8 +83,14 @@ export class PreloadScene extends Phaser.Scene {
       throw new Error('Ash Chunk meteor textures are not registered');
     }
 
+    if (!this.textures.exists(TextureKeys.MiddleEnemyStage2)) {
+      throw new Error('Middle Enemy Stage 2 texture is not registered');
+    }
+
+    this.recolorStage2MiddleTexture();
     this.createPulseBoltTexture();
     this.createEnemyBoltTexture();
+    this.createStage2BeamTexture();
     this.createStarfieldTextures();
     this.createExplosionAnimation();
     this.createGiftAnimations();
@@ -318,6 +327,67 @@ export class PreloadScene extends Phaser.Scene {
 
     graphics.generateTexture(TextureKeys.EnemyBolt, width, height);
     graphics.destroy();
+  }
+
+  private createStage2BeamTexture(): void {
+    if (this.textures.exists(TextureKeys.Stage2Beam)) {
+      return;
+    }
+
+    const width = stage2Beam.textureWidth;
+    const height = stage2Beam.textureHeight;
+    const radius = height / 2;
+    const graphics = this.make.graphics({}, false);
+
+    graphics.fillStyle(stage2Beam.bodyColor, 1);
+    graphics.fillRect(radius, 0, width - height, height);
+    graphics.fillCircle(radius, radius, radius);
+    graphics.fillCircle(width - radius, radius, radius);
+
+    graphics.fillStyle(stage2Beam.coreColor, 1);
+    graphics.fillRect(radius + 1, 2, width - height - 2, height - 4);
+    graphics.fillCircle(radius + 1, radius, radius - 2);
+    graphics.fillCircle(width - radius - 1, radius, radius - 2);
+
+    graphics.generateTexture(TextureKeys.Stage2Beam, width, height);
+    graphics.destroy();
+  }
+
+  private recolorStage2MiddleTexture(): void {
+    const source = this.textures.get(TextureKeys.MiddleEnemyStage2).getSourceImage();
+    if (!('width' in source) || !('height' in source)) {
+      throw new Error('Middle Enemy Stage 2 source image is missing dimensions');
+    }
+
+    const width = source.width;
+    const height = source.height;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (context === null) {
+      throw new Error('Middle Enemy Stage 2 recolor needs a 2D canvas context');
+    }
+
+    context.drawImage(source as CanvasImageSource, 0, 0);
+    const imageData = context.getImageData(0, 0, width, height);
+    const pixels = imageData.data;
+    for (let index = 0; index < pixels.length; index += 4) {
+      const remapped = remapStage2Pixel(
+        pixels[index] ?? 0,
+        pixels[index + 1] ?? 0,
+        pixels[index + 2] ?? 0,
+        pixels[index + 3] ?? 0,
+      );
+      pixels[index] = remapped[0];
+      pixels[index + 1] = remapped[1];
+      pixels[index + 2] = remapped[2];
+      pixels[index + 3] = remapped[3];
+    }
+
+    context.putImageData(imageData, 0, 0);
+    this.textures.remove(TextureKeys.MiddleEnemyStage2);
+    this.textures.addCanvas(TextureKeys.MiddleEnemyStage2, canvas);
   }
 
   private createStarfieldTextures(): void {

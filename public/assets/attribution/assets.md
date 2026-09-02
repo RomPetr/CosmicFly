@@ -33,6 +33,9 @@ Engine flame obtained:
 Middle enemy sprite obtained:
 2026-08-22
 
+Middle Enemy Stage 2 sprite obtained:
+2026-09-02
+
 Space station sprite obtained:
 2026-08-24
 
@@ -44,6 +47,7 @@ Used files:
 - `public/assets/meteors/ash-chunk/spaceMeteors_003.png` — ash chunk (taller silhouette).
 - `public/assets/effects/engine/engine_flame.png` — from `spaceEffects_018.png`, player engine flame.
 - `public/assets/enemies/middle-enemy/spaceShips_007_1.png` — from `spaceShips_007_1.png`, Middle Enemy.
+- `public/assets/enemies/middle-enemy-s2/spaceShips_006.png` — from `PNG/Sprites/Ships/Enemy/spaceShips_006.png`, Middle Enemy Stage 2 (teal recolor at preload).
 - `public/assets/stations/space_station.png` — from `Sprites X2/Station/spaceStation_026.png`, launch station in the intro cutscene.
 
 ## Kenney Sci-fi Sounds
@@ -71,6 +75,7 @@ Used files:
 - `public/assets/audio/enemy/enemy_blaster.ogg` — from `laserLarge_000`;
 - `public/assets/audio/enemy/middle_enemy_blaster.ogg` — from `laserLarge_002.ogg`, Middle Enemy twin-beam volley;
 - `public/assets/audio/enemy/enemy_missile.ogg` — from `forceField_003`;
+- `public/assets/audio/enemy/stage2_lance.ogg` — same Kenney `forceField_003` clip as `enemy_missile.ogg` (dedicated `laserLarge_*` not in the local pack); Middle Enemy Stage 2 lance;
 - `public/assets/audio/engine/engine_low.ogg` — from `spaceEngineLow_002.ogg`;
 - `public/assets/audio/engine/engine_large.ogg` — from `spaceEngineLarge_001.ogg`;
 - `public/assets/audio/player/player_explosion.ogg` — from `explosionCrunch_004.ogg`, player ship destruction.
