@@ -36,6 +36,16 @@ export class WalletManager {
     };
   }
 
+  public trySpendEmeralds(amount: number): boolean {
+    const cost = Math.max(0, Math.floor(amount));
+    if (cost <= 0 || this.emeralds < cost) {
+      return false;
+    }
+
+    this.emeralds -= cost;
+    return true;
+  }
+
   public reset(): void {
     this.emeralds = 0;
     this.rubies = 0;

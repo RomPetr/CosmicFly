@@ -287,6 +287,11 @@ export class Player {
     return healed;
   }
 
+  public setHealth(value: number): void {
+    this.health = Math.max(0, Math.min(starterShip.maxHealth, Math.floor(value)));
+    this.syncHealthBar();
+  }
+
   public activateShield(durationMs: number): void {
     const now = this.sprite.scene.time.now;
     this.shieldUntilMs = now + Math.max(0, durationMs);

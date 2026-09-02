@@ -1,17 +1,22 @@
 import { bases } from '../data/bases';
+import { starterShip } from '../data/ships';
 
 const STORAGE_KEY = 'cosmicfly.progress.v1';
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 export type WalletSnapshot = {
   readonly emeralds: number;
   readonly rubies: number;
 };
 
+export type CheckpointSnapshot = WalletSnapshot & {
+  readonly health: number;
+};
+
 type ProgressShape = {
   version: number;
   reachedCheckpointsKm: number[];
-  checkpointWallets: Record<string, WalletSnapshot>;
+  checkpointSnapshots: Record<string, CheckpointSnapshot>;
 };
 
 export type StartPoint = {
@@ -26,15 +31,19 @@ const NEW_FLIGHT_START: StartPoint = {
   distanceKm: 0,
 };
 
-const EMPTY_WALLET: WalletSnapshot = { emeralds: 0, rubies: 0 };
+const EMPTY_SNAPSHOT: CheckpointSnapshot = {
+  emeralds: 0,
+  rubies: 0,
+  health: starterShip.maxHealth,
+};
 
 export class GameProgress {
   private reachedCheckpointsKm: Set<number>;
-  private checkpointWallets: Map<number, WalletSnapshot>;
+  private checkpointSnapshots: Map<number, CheckpointSnapshot>;
 
   public constructor() {
     this.reachedCheckpointsKm = new Set<number>();
-    this.checkpointWallets = new Map<number, WalletSnapshot>();
+    this.checkpointSnapshots = new Map<number, CheckpointSnapshot>();
     this.load();
   }
 
@@ -42,22 +51,16 @@ export class GameProgress {
     return this.reachedCheckpointsKm.has(km);
   }
 
-  public recordCheckpoint(km: number, wallet: WalletSnapshot): boolean {
-    if (this.reachedCheckpointsKm.has(km)) {
-      return false;
-    }
-
+  public recordCheckpoint(km: number, snapshot: CheckpointSnapshot): boolean {
+    const isNew = !this.reachedCheckpointsKm.has(km);
     this.reachedCheckpointsKm.add(km);
-    this.checkpointWallets.set(km, {
-      emeralds: Math.max(0, Math.floor(wallet.emeralds)),
-      rubies: Math.max(0, Math.floor(wallet.rubies)),
-    });
+    this.checkpointSnapshots.set(km, sanitizeSnapshot(snapshot));
     this.save();
-    return true;
+    return isNew;
   }
 
-  public getCheckpointWallet(km: number): WalletSnapshot {
-    return this.checkpointWallets.get(km) ?? EMPTY_WALLET;
+  public getCheckpointSnapshot(km: number): CheckpointSnapshot {
+    return this.checkpointSnapshots.get(km) ?? EMPTY_SNAPSHOT;
   }
 
   public getStartPoints(): readonly StartPoint[] {
@@ -67,7 +70,7 @@ export class GameProgress {
       if (this.reachedCheckpointsKm.has(base.unlockAtKm)) {
         unlocked.push({
           id: `checkpoint-${base.id}`,
-          displayName: `Continue from ${base.displayName} (${base.unlockAtKm} km)`,
+          displayName: `Continue from ${base.displayName}`,
           distanceKm: base.unlockAtKm,
         });
       }
@@ -78,7 +81,7 @@ export class GameProgress {
 
   public reset(): void {
     this.reachedCheckpointsKm.clear();
-    this.checkpointWallets.clear();
+    this.checkpointSnapshots.clear();
     this.save();
   }
 
@@ -99,10 +102,10 @@ export class GameProgress {
     }
 
     this.reachedCheckpointsKm = new Set(parsed.reachedCheckpointsKm);
-    this.checkpointWallets = new Map(
-      Object.entries(parsed.checkpointWallets).map(([km, wallet]) => [
+    this.checkpointSnapshots = new Map(
+      Object.entries(parsed.checkpointSnapshots).map(([km, snapshot]) => [
         Number(km),
-        wallet,
+        snapshot,
       ]),
     );
   }
@@ -113,15 +116,15 @@ export class GameProgress {
       return;
     }
 
-    const checkpointWallets: Record<string, WalletSnapshot> = {};
-    for (const [km, wallet] of this.checkpointWallets) {
-      checkpointWallets[String(km)] = wallet;
+    const checkpointSnapshots: Record<string, CheckpointSnapshot> = {};
+    for (const [km, snapshot] of this.checkpointSnapshots) {
+      checkpointSnapshots[String(km)] = snapshot;
     }
 
     const shape: ProgressShape = {
       version: CURRENT_VERSION,
       reachedCheckpointsKm: Array.from(this.reachedCheckpointsKm).sort((a, b) => a - b),
-      checkpointWallets,
+      checkpointSnapshots,
     };
 
     try {
@@ -149,8 +152,9 @@ export class GameProgress {
         return null;
       }
 
-      const candidate = value as Partial<ProgressShape> & { version?: number };
-      if (candidate.version !== 1 && candidate.version !== CURRENT_VERSION) {
+      const candidate = value as Record<string, unknown>;
+      const version = candidate.version;
+      if (version !== 1 && version !== 2 && version !== CURRENT_VERSION) {
         return null;
       }
 
@@ -162,29 +166,10 @@ export class GameProgress {
         (item): item is number => typeof item === 'number' && Number.isFinite(item),
       );
 
-      const checkpointWallets: Record<string, WalletSnapshot> = {};
-      if (candidate.version === CURRENT_VERSION && typeof candidate.checkpointWallets === 'object' && candidate.checkpointWallets !== null) {
-        for (const [key, wallet] of Object.entries(candidate.checkpointWallets)) {
-          if (
-            typeof wallet === 'object' &&
-            wallet !== null &&
-            typeof wallet.emeralds === 'number' &&
-            typeof wallet.rubies === 'number' &&
-            Number.isFinite(wallet.emeralds) &&
-            Number.isFinite(wallet.rubies)
-          ) {
-            checkpointWallets[key] = {
-              emeralds: Math.max(0, Math.floor(wallet.emeralds)),
-              rubies: Math.max(0, Math.floor(wallet.rubies)),
-            };
-          }
-        }
-      }
-
       return {
         version: CURRENT_VERSION,
         reachedCheckpointsKm: values,
-        checkpointWallets,
+        checkpointSnapshots: readSnapshots(candidate, version),
       };
     } catch {
       return null;
@@ -193,3 +178,84 @@ export class GameProgress {
 }
 
 export const gameProgress = new GameProgress();
+
+function sanitizeSnapshot(snapshot: CheckpointSnapshot): CheckpointSnapshot {
+  return {
+    emeralds: Math.max(0, Math.floor(snapshot.emeralds)),
+    rubies: Math.max(0, Math.floor(snapshot.rubies)),
+    health: Math.max(0, Math.min(starterShip.maxHealth, Math.floor(snapshot.health))),
+  };
+}
+
+function readSnapshots(
+  candidate: Record<string, unknown>,
+  version: number,
+): Record<string, CheckpointSnapshot> {
+  const snapshots: Record<string, CheckpointSnapshot> = {};
+
+  if (version === 2) {
+    const wallets = candidate.checkpointWallets;
+    if (typeof wallets === 'object' && wallets !== null) {
+      for (const [key, wallet] of Object.entries(wallets)) {
+        const parsed = parseWallet(wallet);
+        if (parsed !== null) {
+          snapshots[key] = { ...parsed, health: starterShip.maxHealth };
+        }
+      }
+    }
+    return snapshots;
+  }
+
+  if (version !== CURRENT_VERSION) {
+    return snapshots;
+  }
+
+  const stored = candidate.checkpointSnapshots;
+  if (typeof stored !== 'object' || stored === null) {
+    return snapshots;
+  }
+
+  for (const [key, snapshot] of Object.entries(stored)) {
+    const parsed = parseWallet(snapshot);
+    if (parsed === null) {
+      continue;
+    }
+
+    const healthValue =
+      typeof snapshot === 'object' &&
+      snapshot !== null &&
+      'health' in snapshot &&
+      typeof snapshot.health === 'number' &&
+      Number.isFinite(snapshot.health)
+        ? snapshot.health
+        : starterShip.maxHealth;
+
+    snapshots[key] = {
+      ...parsed,
+      health: Math.max(0, Math.min(starterShip.maxHealth, Math.floor(healthValue))),
+    };
+  }
+
+  return snapshots;
+}
+
+function parseWallet(value: unknown): WalletSnapshot | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+
+  const wallet = value as { emeralds?: unknown; rubies?: unknown };
+  if (
+    typeof wallet.emeralds !== 'number' ||
+    typeof wallet.rubies !== 'number' ||
+    !Number.isFinite(wallet.emeralds) ||
+    !Number.isFinite(wallet.rubies)
+  ) {
+    return null;
+  }
+
+  return {
+    emeralds: Math.max(0, Math.floor(wallet.emeralds)),
+    rubies: Math.max(0, Math.floor(wallet.rubies)),
+  };
+}

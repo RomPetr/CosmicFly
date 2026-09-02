@@ -101,7 +101,17 @@ export class WeaponSystem {
   public stop(): void {
     this.firingEnabled = false;
     this.heatModel.reset();
+    this.deactivateProjectiles();
+  }
 
+  public clearForDock(): void {
+    this.heatModel.reset();
+    this.pulseCooldownRemainingMs = 0;
+    this.missileCooldownRemainingMs = 0;
+    this.deactivateProjectiles();
+  }
+
+  private deactivateProjectiles(): void {
     if (!this.scene.sys.isActive()) {
       return;
     }

@@ -56,9 +56,12 @@ export class IntroSequence {
   }
 
   public start(): void {
-    if (this.phase !== IntroPhases.Idle) {
+    if (this.isActive()) {
       return;
     }
+
+    this.audioManager.stopLaunchCue();
+    this.destroyVisuals();
 
     if (!this.scene.textures.exists(TextureKeys.SpaceStation)) {
       throw new Error(`Texture "${TextureKeys.SpaceStation}" is not registered`);

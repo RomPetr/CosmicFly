@@ -52,7 +52,14 @@ export class EnemyWeaponSystem {
 
   public stop(): void {
     this.firingEnabled = false;
+    this.deactivateProjectiles();
+  }
 
+  public clearForDock(): void {
+    this.deactivateProjectiles();
+  }
+
+  private deactivateProjectiles(): void {
     if (!this.scene.sys.isActive()) {
       return;
     }

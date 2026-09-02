@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
-import { bases } from '../data/bases';
+import { bases, findBaseAtKm } from '../data/bases';
+import { emeraldRepair, quoteEmeraldRepair } from '../data/emeraldRepair';
 import type { RamSoundKind } from '../data/ramming';
+import { starterShip } from '../data/ships';
 import { WeaponIds, type WeaponId } from '../data/weapons';
 import { Enemy } from '../entities/Enemy';
 import type { Meteor } from '../entities/Meteor';
@@ -14,6 +16,7 @@ import { ShieldAura } from '../effects/ShieldAura';
 import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
 import { WalletManager } from '../managers/WalletManager';
+import type { BaseDefinition } from '../bases/BaseDefinition';
 import { gameProgress } from '../state/GameProgress';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
@@ -28,6 +31,7 @@ import {
   emeraldCounterStyle,
   rubyCounterStyle,
 } from '../ui/CrystalCounter';
+import { BaseStationView, type BaseStationViewState } from '../ui/BaseStationView';
 import { LaserHeatBar } from '../ui/LaserHeatBar';
 
 const DEATH_TO_GAME_OVER_MS = 1500;
@@ -63,13 +67,16 @@ export class GameScene extends Phaser.Scene {
   private emeraldCounter!: CrystalCounter;
   private rubyCounter!: CrystalCounter;
   private laserHeatBar!: LaserHeatBar;
+  private baseView!: BaseStationView;
   private endFlight!: Phaser.GameObjects.Text;
   private wallet!: WalletManager;
   private transitioning = false;
   private destroyingPlayer = false;
   private overheatAlarmActive = false;
+  private combatPaused = false;
   private startKm = 0;
-  private recordedCheckpoints = new Set<number>();
+  private lastDistanceKm = 0;
+  private dockedBase: BaseDefinition | null = null;
 
   public constructor() {
     super({ key: SceneKeys.Game });
@@ -83,7 +90,9 @@ export class GameScene extends Phaser.Scene {
     this.transitioning = false;
     this.destroyingPlayer = false;
     this.overheatAlarmActive = false;
-    this.recordedCheckpoints = new Set<number>();
+    this.combatPaused = false;
+    this.dockedBase = null;
+    this.lastDistanceKm = this.startKm;
 
     const { width, height } = this.scale;
 
@@ -96,11 +105,16 @@ export class GameScene extends Phaser.Scene {
 
     this.audioManager = new AudioManager(this);
     this.inputManager = new InputManager(this);
-    const startingWallet =
-      this.startKm > 0 ? gameProgress.getCheckpointWallet(this.startKm) : { emeralds: 0, rubies: 0 };
-    this.wallet = new WalletManager(startingWallet);
+    const startingSnapshot =
+      this.startKm > 0
+        ? gameProgress.getCheckpointSnapshot(this.startKm)
+        : { emeralds: 0, rubies: 0, health: starterShip.maxHealth };
+    this.wallet = new WalletManager(startingSnapshot);
     this.starfieldSystem = new StarfieldSystem(this, this.startKm);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
+    if (this.startKm > 0) {
+      this.player.setHealth(Math.max(1, startingSnapshot.health));
+    }
     this.intro = new IntroSequence(this, this.audioManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
@@ -157,7 +171,7 @@ export class GameScene extends Phaser.Scene {
         color: '#7fd4ff',
       })
       .setOrigin(1, 0)
-      .setDepth(1000)
+      .setDepth(2100)
       .setInteractive({ useHandCursor: true });
 
     this.endFlight.on('pointerdown', this.goToGameOver, this);
@@ -165,7 +179,12 @@ export class GameScene extends Phaser.Scene {
     this.emeraldCounter = new CrystalCounter(this, emeraldCounterStyle);
     this.rubyCounter = new CrystalCounter(this, rubyCounterStyle);
     this.laserHeatBar = new LaserHeatBar(this);
-    this.laserHeatBar.setVisible(this.startKm > 0);
+    this.laserHeatBar.setVisible(false);
+    this.baseView = new BaseStationView(this, {
+      onRepairOne: () => this.buyRepair(emeraldRepair.packSmall),
+      onRepairTen: () => this.buyRepair(emeraldRepair.packLarge),
+      onNextStage: () => this.leaveBaseForNextStage(),
+    });
     this.syncCrystalCounters();
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
     this.events.on(Phaser.Scenes.Events.PAUSE, this.deactivateEngineThrust, this);
@@ -179,7 +198,12 @@ export class GameScene extends Phaser.Scene {
       this.starfieldSystem.setScrollEnabled(false);
       this.intro.start();
     } else {
-      this.startGameplaySystems();
+      const docked = findBaseAtKm(this.startKm);
+      if (docked !== undefined) {
+        this.enterBase(docked);
+      } else {
+        this.startGameplaySystems();
+      }
     }
 
     this.syncHud();
@@ -197,6 +221,11 @@ export class GameScene extends Phaser.Scene {
 
     if (this.intro.isActive()) {
       this.updateIntro(delta);
+      return;
+    }
+
+    if (this.dockedBase !== null) {
+      this.updateDocked(delta);
       return;
     }
 
@@ -219,6 +248,11 @@ export class GameScene extends Phaser.Scene {
       this.inputManager.getMoveVector().y,
       this.player.rotation,
     );
+    this.tryEnterBaseIfCrossed();
+    if (this.dockedBase !== null) {
+      this.syncHud();
+      return;
+    }
     this.meteorSystem.update(delta, this.starfieldSystem.getScrollSpeed());
     this.weaponSystem.update(delta);
     this.laserHeatBar.update(this.weaponSystem.getHeatState());
@@ -232,7 +266,13 @@ export class GameScene extends Phaser.Scene {
     this.blinkTrail.update(delta);
     this.emeraldCounter.update(delta);
     this.rubyCounter.update(delta);
-    this.recordCheckpointsIfNeeded();
+    this.syncHud();
+  }
+
+  private updateDocked(delta: number): void {
+    this.starfieldSystem.update(delta, 0, 0);
+    this.emeraldCounter.update(delta);
+    this.rubyCounter.update(delta);
     this.syncHud();
   }
 
@@ -254,6 +294,10 @@ export class GameScene extends Phaser.Scene {
   private finishIntro(): void {
     this.player.setDormant(false);
     this.starfieldSystem.setScrollEnabled(true);
+    if (this.combatPaused) {
+      this.physics.world.resume();
+      this.combatPaused = false;
+    }
     this.startGameplaySystems();
   }
 
@@ -284,17 +328,105 @@ export class GameScene extends Phaser.Scene {
     this.laserHeatBar.setVisible(true);
   }
 
-  private recordCheckpointsIfNeeded(): void {
+  private tryEnterBaseIfCrossed(): void {
     const currentKm = this.starfieldSystem.getDistanceKm();
     for (const base of bases) {
-      if (this.recordedCheckpoints.has(base.unlockAtKm)) {
-        continue;
-      }
-      if (currentKm >= base.unlockAtKm) {
-        this.recordedCheckpoints.add(base.unlockAtKm);
-        gameProgress.recordCheckpoint(base.unlockAtKm, this.wallet.getSnapshot());
+      if (this.lastDistanceKm < base.unlockAtKm && currentKm >= base.unlockAtKm) {
+        this.enterBase(base);
+        break;
       }
     }
+    this.lastDistanceKm = this.starfieldSystem.getDistanceKm();
+  }
+
+  private enterBase(base: BaseDefinition): void {
+    this.dockedBase = base;
+    this.lastDistanceKm = Math.max(this.lastDistanceKm, base.unlockAtKm);
+    this.deactivateEngineThrust();
+    this.player.setDormant(true);
+    this.starfieldSystem.setScrollEnabled(false);
+    this.spawnSystem.stop();
+    this.meteorSystem.stop();
+    this.giftSystem.stop();
+    this.weaponSystem.clearForDock();
+    this.enemyWeaponSystem.clearForDock();
+    this.laserHeatBar.setVisible(false);
+    if (!this.physics.world.isPaused) {
+      this.physics.world.pause();
+      this.combatPaused = true;
+    }
+    this.persistDockSnapshot();
+    this.baseView.show(this.getBaseViewState());
+  }
+
+  private leaveBaseForNextStage(): void {
+    if (this.dockedBase === null || this.transitioning) {
+      return;
+    }
+
+    this.persistDockSnapshot();
+    this.baseView.hide();
+    this.dockedBase = null;
+    this.lastDistanceKm = this.starfieldSystem.getDistanceKm();
+    this.player.setDormant(true);
+    this.starfieldSystem.setScrollEnabled(false);
+    this.laserHeatBar.setVisible(false);
+    this.intro.start();
+  }
+
+  private buyRepair(requestedEmeralds: number): void {
+    if (this.dockedBase === null) {
+      return;
+    }
+
+    const quote = quoteEmeraldRepair({
+      emeralds: this.wallet.getEmeralds(),
+      currentHealth: this.player.getHealth(),
+      maxHealth: starterShip.maxHealth,
+      requestedEmeralds,
+    });
+    if (quote.spend <= 0 || quote.heal <= 0) {
+      return;
+    }
+
+    if (!this.wallet.trySpendEmeralds(quote.spend)) {
+      return;
+    }
+
+    this.player.heal(quote.heal);
+    this.persistDockSnapshot();
+    this.baseView.sync(this.getBaseViewState());
+    this.syncHud();
+  }
+
+  private persistDockSnapshot(): void {
+    if (this.dockedBase === null) {
+      return;
+    }
+
+    gameProgress.recordCheckpoint(this.dockedBase.unlockAtKm, {
+      ...this.wallet.getSnapshot(),
+      health: this.player.getHealth(),
+    });
+  }
+
+  private getBaseViewState(): BaseStationViewState {
+    const request = {
+      emeralds: this.wallet.getEmeralds(),
+      currentHealth: this.player.getHealth(),
+      maxHealth: starterShip.maxHealth,
+    };
+
+    return {
+      stageCompleteLabel: this.dockedBase?.stageCompleteLabel ?? '',
+      emeralds: this.wallet.getEmeralds(),
+      rubies: this.wallet.getRubies(),
+      healthPercent: this.player.getHealthPercent(),
+      canRepairOne:
+        quoteEmeraldRepair({ ...request, requestedEmeralds: emeraldRepair.packSmall }).spend > 0,
+      canRepairTen:
+        quoteEmeraldRepair({ ...request, requestedEmeralds: emeraldRepair.packLarge }).spend > 0,
+    };
   }
 
   private syncCrystalCounters(): void {
@@ -424,6 +556,7 @@ export class GameScene extends Phaser.Scene {
     this.starfieldSystem.stop();
     this.intro.stop();
     this.blinkTrail.stop();
+    this.baseView.destroy();
   }
 
   private deactivateEngineThrust(): void {
@@ -446,6 +579,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.transitioning = true;
+    this.persistDockSnapshot();
     this.deactivateEngineThrust();
     this.input.enabled = false;
     this.physics.world.pause();
