@@ -15,6 +15,7 @@ export type BaseDefinition = {
   readonly id: string;
   readonly displayName: string;
   readonly unlockAtKm: number;
-  readonly stageCompleteLabel: string;
+  /** Stage index (1–10) for every 100 km checkpoint before the final boss. */
+  readonly stageNumber: number;
   readonly services: readonly BaseService[];
 };

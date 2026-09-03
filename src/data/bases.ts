@@ -4,7 +4,7 @@ export const base100: BaseDefinition = {
   id: 'base-100',
   displayName: 'Base 100',
   unlockAtKm: 100,
-  stageCompleteLabel: 'Stage 1 complete',
+  stageNumber: 1,
   services: [],
 };
 
@@ -12,7 +12,7 @@ export const base200: BaseDefinition = {
   id: 'base-200',
   displayName: 'Base 200',
   unlockAtKm: 200,
-  stageCompleteLabel: 'Stage 2 complete',
+  stageNumber: 2,
   services: [],
 };
 

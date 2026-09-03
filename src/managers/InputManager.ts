@@ -8,6 +8,8 @@ export class InputManager {
   private readonly keyS: Phaser.Input.Keyboard.Key;
   private readonly keyD: Phaser.Input.Keyboard.Key;
   private readonly keyE: Phaser.Input.Keyboard.Key;
+  private readonly keyH: Phaser.Input.Keyboard.Key;
+  private readonly keyShift: Phaser.Input.Keyboard.Key;
   private readonly moveVector: Phaser.Math.Vector2;
   private readonly aimPosition: Phaser.Math.Vector2;
   private pulseFiring: boolean;
@@ -35,6 +37,8 @@ export class InputManager {
     this.keyS = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
     this.keyD = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.keyE = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E);
+    this.keyH = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
+    this.keyShift = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
   }
 
   public update(): void {
@@ -111,6 +115,16 @@ export class InputManager {
     }
 
     return Phaser.Input.Keyboard.JustDown(this.keyE);
+  }
+
+  /** Debug/testing shortcut: restore player hull to 100%. */
+  public consumeDebugFullHealPress(): boolean {
+    if (!this.isWindowFocused()) {
+      return false;
+    }
+
+    const shiftHeld = this.keyShift.isDown;
+    return shiftHeld && Phaser.Input.Keyboard.JustDown(this.keyH);
   }
 
   public isMovementKeyDown(): boolean {

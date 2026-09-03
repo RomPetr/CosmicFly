@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SoundKeys, type SoundKey } from '../config/assetKeys';
+import { stageCompleteConfig, stageCompleteFanfare } from '../data/stageComplete';
 
 const VOLUME_PULSE = 0.4;
 const VOLUME_MISSILE = 0.5;
@@ -37,6 +38,10 @@ export class AudioManager {
   private overheatGain: GainNode | null;
   private overheatPitchEvent: Phaser.Time.TimerEvent | null;
   private overheatHighTone: boolean;
+  private stageCompleteStopTimer: Phaser.Time.TimerEvent | null;
+  private readonly stageCompleteNodes: OscillatorNode[];
+  private readonly stageCompleteGains: GainNode[];
+  private stageCompleteWaitingForUnlock: boolean;
 
   public constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -53,6 +58,10 @@ export class AudioManager {
     this.overheatGain = null;
     this.overheatPitchEvent = null;
     this.overheatHighTone = true;
+    this.stageCompleteStopTimer = null;
+    this.stageCompleteNodes = [];
+    this.stageCompleteGains = [];
+    this.stageCompleteWaitingForUnlock = false;
   }
 
   public startFlight(): void {
@@ -104,6 +113,37 @@ export class AudioManager {
     this.launchCue = null;
   }
 
+  public playStageCompleteFanfare(durationMs: number = stageCompleteConfig.durationMs): void {
+    this.stopStageCompleteFanfare();
+    this.scheduleStageCompleteFanfare(durationMs);
+  }
+
+  public stopStageCompleteFanfare(): void {
+    this.stageCompleteWaitingForUnlock = false;
+    this.scene.sound.off(Phaser.Sound.Events.UNLOCKED, this.scheduleStageCompleteFanfare, this);
+
+    if (this.stageCompleteStopTimer !== null) {
+      this.stageCompleteStopTimer.remove(false);
+      this.stageCompleteStopTimer = null;
+    }
+
+    for (const oscillator of this.stageCompleteNodes) {
+      try {
+        oscillator.stop();
+      } catch {
+        // OscillatorNode.stop throws if it has already been stopped.
+      }
+      oscillator.disconnect();
+    }
+
+    for (const gain of this.stageCompleteGains) {
+      gain.disconnect();
+    }
+
+    this.stageCompleteNodes.length = 0;
+    this.stageCompleteGains.length = 0;
+  }
+
   public startOverheatAlarm(): void {
     if (this.overheatAlarmRequested) {
       return;
@@ -125,6 +165,7 @@ export class AudioManager {
   }
 
   public stopFlight(): void {
+    this.stopStageCompleteFanfare();
     this.stopOverheatAlarm();
     this.thrusting = false;
     this.flightActive = false;
@@ -192,6 +233,63 @@ export class AudioManager {
     this.overheatOscillator.frequency.value = this.overheatHighTone
       ? OVERHEAT_HIGH_HZ
       : OVERHEAT_LOW_HZ;
+  }
+
+  private scheduleStageCompleteFanfare(durationMs: number = stageCompleteConfig.durationMs): void {
+    if (!this.scene.sys.isActive()) {
+      return;
+    }
+
+    if (this.scene.sound.locked) {
+      if (!this.stageCompleteWaitingForUnlock) {
+        this.stageCompleteWaitingForUnlock = true;
+        this.scene.sound.once(
+          Phaser.Sound.Events.UNLOCKED,
+          () => this.scheduleStageCompleteFanfare(durationMs),
+          this,
+        );
+      }
+      return;
+    }
+
+    this.stageCompleteWaitingForUnlock = false;
+    const manager = this.getWebAudioManager();
+    if (manager === null || manager.context.state === 'closed') {
+      return;
+    }
+
+    const context = manager.context;
+    const now = context.currentTime;
+    const masterVolume = stageCompleteConfig.fanfareVolume;
+
+    for (const note of stageCompleteFanfare) {
+      const oscillator = context.createOscillator();
+      oscillator.type = 'triangle';
+      oscillator.frequency.value = note.frequencyHz;
+
+      const gain = context.createGain();
+      const startAt = now + note.startMs / 1000;
+      const attackEnd = startAt + 0.04;
+      const releaseStart = startAt + note.durationMs / 1000;
+      const endAt = releaseStart + 0.12;
+
+      gain.gain.setValueAtTime(0, startAt);
+      gain.gain.linearRampToValueAtTime(masterVolume, attackEnd);
+      gain.gain.setValueAtTime(masterVolume, releaseStart);
+      gain.gain.linearRampToValueAtTime(0, endAt);
+
+      oscillator.connect(gain);
+      gain.connect(manager.destination);
+      oscillator.start(startAt);
+      oscillator.stop(endAt);
+
+      this.stageCompleteNodes.push(oscillator);
+      this.stageCompleteGains.push(gain);
+    }
+
+    this.stageCompleteStopTimer = this.scene.time.delayedCall(durationMs, () => {
+      this.stopStageCompleteFanfare();
+    });
   }
 
   private destroyOverheatNodes(): void {

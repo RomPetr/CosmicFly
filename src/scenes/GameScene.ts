@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
 import { bases, findBaseAtKm } from '../data/bases';
+import { formatStageCompleteLabel } from '../data/stageComplete';
 import { emeraldRepair, quoteEmeraldRepair } from '../data/emeraldRepair';
 import type { RamSoundKind } from '../data/ramming';
 import { starterShip } from '../data/ships';
@@ -22,6 +23,7 @@ import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
 import { GiftSystem } from '../systems/GiftSystem';
 import { IntroSequence } from '../systems/IntroSequence';
+import { StageCompleteSequence } from '../systems/StageCompleteSequence';
 import { MeteorSystem } from '../systems/MeteorSystem';
 import { SpawnSystem } from '../systems/SpawnSystem';
 import { StarfieldSystem } from '../systems/StarfieldSystem';
@@ -63,6 +65,7 @@ export class GameScene extends Phaser.Scene {
   private blinkTrail!: BlinkTrail;
   private shieldAura!: ShieldAura;
   private intro!: IntroSequence;
+  private stageComplete!: StageCompleteSequence;
   private hudText!: Phaser.GameObjects.Text;
   private emeraldCounter!: CrystalCounter;
   private rubyCounter!: CrystalCounter;
@@ -77,6 +80,7 @@ export class GameScene extends Phaser.Scene {
   private startKm = 0;
   private lastDistanceKm = 0;
   private dockedBase: BaseDefinition | null = null;
+  private pendingBase: BaseDefinition | null = null;
 
   public constructor() {
     super({ key: SceneKeys.Game });
@@ -92,6 +96,7 @@ export class GameScene extends Phaser.Scene {
     this.overheatAlarmActive = false;
     this.combatPaused = false;
     this.dockedBase = null;
+    this.pendingBase = null;
     this.lastDistanceKm = this.startKm;
 
     const { width, height } = this.scale;
@@ -116,6 +121,7 @@ export class GameScene extends Phaser.Scene {
       this.player.setHealth(Math.max(1, startingSnapshot.health));
     }
     this.intro = new IntroSequence(this, this.audioManager);
+    this.stageComplete = new StageCompleteSequence(this, this.audioManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
     this.spawnSystem = new SpawnSystem(this, this.player);
     this.enemyWeaponSystem = new EnemyWeaponSystem(
@@ -224,12 +230,18 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.stageComplete.isActive()) {
+      this.updateStageComplete(delta);
+      return;
+    }
+
     if (this.dockedBase !== null) {
       this.updateDocked(delta);
       return;
     }
 
     this.inputManager.update();
+    this.tryDebugFullHeal();
     const wThrustActive = this.inputManager.isWThrustActive();
     const reverseThrustActive = this.inputManager.isReverseThrustActive();
     this.player.setEngineThrustActive(wThrustActive);
@@ -270,10 +282,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateDocked(delta: number): void {
+    this.inputManager.update();
+    this.tryDebugFullHeal();
     this.starfieldSystem.update(delta, 0, 0);
     this.emeraldCounter.update(delta);
     this.rubyCounter.update(delta);
     this.syncHud();
+  }
+
+  private updateStageComplete(delta: number): void {
+    this.stageComplete.update(delta);
+    this.starfieldSystem.update(delta, 0, 0);
+    this.emeraldCounter.update(delta);
+    this.rubyCounter.update(delta);
+    this.syncHud();
+
+    if (!this.stageComplete.isFinished() || this.pendingBase === null) {
+      return;
+    }
+
+    const base = this.pendingBase;
+    this.pendingBase = null;
+    this.stageComplete.stop();
+    this.enterBase(base);
   }
 
   private updateIntro(delta: number): void {
@@ -332,16 +363,21 @@ export class GameScene extends Phaser.Scene {
     const currentKm = this.starfieldSystem.getDistanceKm();
     for (const base of bases) {
       if (this.lastDistanceKm < base.unlockAtKm && currentKm >= base.unlockAtKm) {
-        this.enterBase(base);
+        this.beginBaseArrival(base);
         break;
       }
     }
     this.lastDistanceKm = this.starfieldSystem.getDistanceKm();
   }
 
-  private enterBase(base: BaseDefinition): void {
-    this.dockedBase = base;
+  private beginBaseArrival(base: BaseDefinition): void {
+    this.pendingBase = base;
     this.lastDistanceKm = Math.max(this.lastDistanceKm, base.unlockAtKm);
+    this.pauseForDock();
+    this.stageComplete.start(base.stageNumber);
+  }
+
+  private pauseForDock(): void {
     this.deactivateEngineThrust();
     this.player.setDormant(true);
     this.starfieldSystem.setScrollEnabled(false);
@@ -355,8 +391,26 @@ export class GameScene extends Phaser.Scene {
       this.physics.world.pause();
       this.combatPaused = true;
     }
+  }
+
+  private enterBase(base: BaseDefinition): void {
+    this.dockedBase = base;
+    this.lastDistanceKm = Math.max(this.lastDistanceKm, base.unlockAtKm);
+    this.pauseForDock();
     this.persistDockSnapshot();
     this.baseView.show(this.getBaseViewState());
+  }
+
+  private tryDebugFullHeal(): void {
+    if (!this.inputManager.consumeDebugFullHealPress()) {
+      return;
+    }
+
+    this.player.restoreFullHealth();
+    if (this.dockedBase !== null) {
+      this.baseView.sync(this.getBaseViewState());
+    }
+    this.syncHud();
   }
 
   private leaveBaseForNextStage(): void {
@@ -418,7 +472,9 @@ export class GameScene extends Phaser.Scene {
     };
 
     return {
-      stageCompleteLabel: this.dockedBase?.stageCompleteLabel ?? '',
+      stageCompleteLabel: this.dockedBase
+        ? formatStageCompleteLabel(this.dockedBase.stageNumber)
+        : '',
       emeralds: this.wallet.getEmeralds(),
       rubies: this.wallet.getRubies(),
       healthPercent: this.player.getHealthPercent(),
@@ -555,6 +611,7 @@ export class GameScene extends Phaser.Scene {
     this.shieldAura.stop();
     this.starfieldSystem.stop();
     this.intro.stop();
+    this.stageComplete.stop();
     this.blinkTrail.stop();
     this.baseView.destroy();
   }
