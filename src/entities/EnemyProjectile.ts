@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TextureKeys, type TextureKey } from '../config/assetKeys';
+import { stage2Beam } from '../data/stage2Beam';
 import { BeamInverseTrail } from '../effects/BeamInverseTrail';
 
 export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
@@ -46,6 +47,11 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     this.setTexture(textureKey);
     this.setScale(scale);
     this.setAlpha(1);
+    if (this.fadeOut) {
+      this.setOrigin(stage2Beam.originX, stage2Beam.originY);
+    } else {
+      this.setOrigin(0.5, 0.5);
+    }
     this.enableBody(true, x, y, true, true);
     this.setRotation(rotation);
     this.setDepth(2);
@@ -82,7 +88,11 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
       return;
     }
 
-    this.trail.update(delta, this.x, this.y, this.rotation);
+    const back = this.rotation + Math.PI;
+    const trailDistance = this.displayWidth * stage2Beam.trailSpawnBackRatio;
+    const trailX = this.x + Math.cos(back) * trailDistance;
+    const trailY = this.y + Math.sin(back) * trailDistance;
+    this.trail.update(delta, trailX, trailY, this.rotation);
   }
 
   public preUpdate(time: number, delta: number): void {
@@ -107,6 +117,7 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     this.fadeOut = false;
     this.inverseTrail = false;
     this.setAlpha(1);
+    this.setOrigin(0.5, 0.5);
 
     if (!this.scene.sys.isActive()) {
       return;

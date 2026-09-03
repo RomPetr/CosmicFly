@@ -1,4 +1,5 @@
 import { SoundKeys, TextureKeys, type SoundKey, type TextureKey } from '../config/assetKeys';
+import { stage2Beam } from './stage2Beam';
 
 export const EnemyWeaponIds = {
   StingDartBlaster: 'sting-dart-blaster',
@@ -70,7 +71,7 @@ export const stage2Lance: EnemyWeaponDef = {
   poolSize: 4,
   scale: 1,
   rotationJitterAmplitude: 0.08,
-  muzzleOffsets: [{ forward: 22, lateral: 0 }],
+  muzzleOffsets: [{ forward: stage2Beam.muzzleForwardPx, lateral: 0 }],
 };
 
 export const enemyWeapons: Record<EnemyWeaponId, EnemyWeaponDef> = {
