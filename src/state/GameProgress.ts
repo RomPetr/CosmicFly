@@ -2,15 +2,17 @@ import { bases } from '../data/bases';
 import { starterShip } from '../data/ships';
 
 const STORAGE_KEY = 'cosmicfly.progress.v1';
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 5;
 
 export type WalletSnapshot = {
   readonly emeralds: number;
   readonly rubies: number;
+  readonly diamonds: number;
 };
 
 export type CheckpointSnapshot = WalletSnapshot & {
   readonly health: number;
+  readonly ownedEquipmentIds: string[];
 };
 
 type ProgressShape = {
@@ -34,7 +36,9 @@ const NEW_FLIGHT_START: StartPoint = {
 const EMPTY_SNAPSHOT: CheckpointSnapshot = {
   emeralds: 0,
   rubies: 0,
+  diamonds: 0,
   health: starterShip.maxHealth,
+  ownedEquipmentIds: [],
 };
 
 export class GameProgress {
@@ -154,7 +158,7 @@ export class GameProgress {
 
       const candidate = value as Record<string, unknown>;
       const version = candidate.version;
-      if (version !== 1 && version !== 2 && version !== CURRENT_VERSION) {
+      if (typeof version !== 'number' || version < 1 || version > CURRENT_VERSION) {
         return null;
       }
 
@@ -183,8 +187,24 @@ function sanitizeSnapshot(snapshot: CheckpointSnapshot): CheckpointSnapshot {
   return {
     emeralds: Math.max(0, Math.floor(snapshot.emeralds)),
     rubies: Math.max(0, Math.floor(snapshot.rubies)),
+    diamonds: Math.max(0, Math.floor(snapshot.diamonds)),
     health: Math.max(0, Math.min(starterShip.maxHealth, Math.floor(snapshot.health))),
+    ownedEquipmentIds: sanitizeOwnedEquipmentIds(snapshot.ownedEquipmentIds),
   };
+}
+
+function sanitizeOwnedEquipmentIds(ids: readonly string[] | undefined): string[] {
+  if (!Array.isArray(ids)) {
+    return [];
+  }
+
+  const unique = new Set<string>();
+  for (const id of ids) {
+    if (typeof id === 'string' && id.length > 0) {
+      unique.add(id);
+    }
+  }
+  return Array.from(unique);
 }
 
 function readSnapshots(
@@ -199,14 +219,19 @@ function readSnapshots(
       for (const [key, wallet] of Object.entries(wallets)) {
         const parsed = parseWallet(wallet);
         if (parsed !== null) {
-          snapshots[key] = { ...parsed, health: starterShip.maxHealth };
+          snapshots[key] = {
+            ...parsed,
+            health: starterShip.maxHealth,
+            ownedEquipmentIds: [],
+          };
         }
       }
     }
     return snapshots;
   }
 
-  if (version !== CURRENT_VERSION) {
+  // v1 has no wallet snapshots; v3+ use checkpointSnapshots (diamonds optional → 0).
+  if (version < 3) {
     return snapshots;
   }
 
@@ -230,9 +255,18 @@ function readSnapshots(
         ? snapshot.health
         : starterShip.maxHealth;
 
+    const ownedEquipmentIds =
+      version >= 5 &&
+      typeof snapshot === 'object' &&
+      snapshot !== null &&
+      'ownedEquipmentIds' in snapshot
+        ? sanitizeOwnedEquipmentIds(snapshot.ownedEquipmentIds as string[])
+        : [];
+
     snapshots[key] = {
       ...parsed,
       health: Math.max(0, Math.min(starterShip.maxHealth, Math.floor(healthValue))),
+      ownedEquipmentIds,
     };
   }
 
@@ -244,7 +278,7 @@ function parseWallet(value: unknown): WalletSnapshot | null {
     return null;
   }
 
-  const wallet = value as { emeralds?: unknown; rubies?: unknown };
+  const wallet = value as { emeralds?: unknown; rubies?: unknown; diamonds?: unknown };
   if (
     typeof wallet.emeralds !== 'number' ||
     typeof wallet.rubies !== 'number' ||
@@ -254,8 +288,14 @@ function parseWallet(value: unknown): WalletSnapshot | null {
     return null;
   }
 
+  const diamonds =
+    typeof wallet.diamonds === 'number' && Number.isFinite(wallet.diamonds)
+      ? wallet.diamonds
+      : 0;
+
   return {
     emeralds: Math.max(0, Math.floor(wallet.emeralds)),
     rubies: Math.max(0, Math.floor(wallet.rubies)),
+    diamonds: Math.max(0, Math.floor(diamonds)),
   };
 }

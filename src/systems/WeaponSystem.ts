@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { starterShip } from '../data/ships';
-import { weapons, type WeaponDef } from '../data/weapons';
+import { WeaponIds, weapons, type WeaponDef } from '../data/weapons';
 import type { Player } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import type { AudioManager } from '../managers/AudioManager';
@@ -8,6 +8,8 @@ import type { InputManager } from '../managers/InputManager';
 import { LaserHeatModel } from './LaserHeatModel';
 
 const PROJECTILE_POOL_SIZE = 40;
+/** Lateral muzzle offsets (px) for double pulse-beam, mirrored about the nose. */
+const DOUBLE_PULSE_LATERAL_PX = 12;
 
 export type LaserHeatState = {
   readonly heat: number;
@@ -30,6 +32,8 @@ export class WeaponSystem {
   private pulseCooldownRemainingMs: number;
   private missileCooldownRemainingMs: number;
   private firingEnabled: boolean;
+  private pulseProjectileCount: number;
+  private pulseLateralOffsets: readonly number[];
 
   public constructor(
     scene: Phaser.Scene,
@@ -48,6 +52,8 @@ export class WeaponSystem {
     this.pulseCooldownRemainingMs = 0;
     this.missileCooldownRemainingMs = 0;
     this.firingEnabled = true;
+    this.pulseProjectileCount = this.pulseWeapon.projectileCount;
+    this.pulseLateralOffsets = [0];
 
     this.projectiles = scene.physics.add.group({
       classType: Projectile,
@@ -59,6 +65,17 @@ export class WeaponSystem {
 
   public getProjectiles(): Phaser.Physics.Arcade.Group {
     return this.projectiles;
+  }
+
+  public setDoublePulseOwned(owned: boolean): void {
+    if (owned) {
+      this.pulseProjectileCount = 2;
+      this.pulseLateralOffsets = [-DOUBLE_PULSE_LATERAL_PX, DOUBLE_PULSE_LATERAL_PX];
+      return;
+    }
+
+    this.pulseProjectileCount = this.pulseWeapon.projectileCount;
+    this.pulseLateralOffsets = [0];
   }
 
   public getHeatState(): LaserHeatState {
@@ -142,11 +159,15 @@ export class WeaponSystem {
 
   private spawnVolley(weapon: WeaponDef): void {
     const aim = this.inputManager.getAimPosition();
-    const muzzle = this.player.getMuzzlePosition(this.muzzlePosition);
     const rotation = Phaser.Math.Angle.Between(this.player.x, this.player.y, aim.x, aim.y);
+    const isPulse = weapon.id === WeaponIds.PulseBeam;
+    const count = isPulse ? this.pulseProjectileCount : weapon.projectileCount;
+    const laterals = isPulse ? this.pulseLateralOffsets : ([0] as const);
     let spawned = false;
 
-    for (let index = 0; index < weapon.projectileCount; index += 1) {
+    for (let index = 0; index < count; index += 1) {
+      const lateral = laterals[index] ?? 0;
+      const muzzle = this.player.getMuzzlePosition(this.muzzlePosition, lateral);
       const bolt = this.projectiles.get(muzzle.x, muzzle.y);
       if (!(bolt instanceof Projectile)) {
         break;

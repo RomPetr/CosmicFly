@@ -4,6 +4,7 @@ import {
   emeraldRepair,
   hullPointsPerEmerald,
   quoteEmeraldRepair,
+  quoteEmeraldSell,
 } from './emeraldRepair';
 
 const MAX = 100;
@@ -88,5 +89,53 @@ describe('emeraldRepair', () => {
         requestedEmeralds: 10,
       }),
     ).toEqual({ spend: 0, heal: 0 });
+  });
+});
+
+describe('quoteEmeraldSell', () => {
+  it('sells 2% hull for 1 Emerald when hull stays above 0%', () => {
+    expect(
+      quoteEmeraldSell({
+        currentHealth: 40,
+        maxHealth: MAX,
+      }),
+    ).toEqual({ refund: 1, damage: 2, blockedAsSuicide: false });
+  });
+
+  it('blocks sell when −2% would leave hull at 0%', () => {
+    expect(
+      quoteEmeraldSell({
+        currentHealth: 2,
+        maxHealth: MAX,
+      }),
+    ).toEqual({ refund: 0, damage: 0, blockedAsSuicide: true });
+  });
+
+  it('blocks sell when hull is already at 1% (would go below 0%)', () => {
+    expect(
+      quoteEmeraldSell({
+        currentHealth: 1,
+        maxHealth: MAX,
+      }),
+    ).toEqual({ refund: 0, damage: 0, blockedAsSuicide: true });
+  });
+
+  it('allows sell at 4% hull (leaves 2%)', () => {
+    expect(
+      quoteEmeraldSell({
+        currentHealth: 4,
+        maxHealth: MAX,
+        requestedEmeralds: 1,
+      }),
+    ).toEqual({ refund: 1, damage: 2, blockedAsSuicide: false });
+  });
+
+  it('returns nothing when hull is already empty', () => {
+    expect(
+      quoteEmeraldSell({
+        currentHealth: 0,
+        maxHealth: MAX,
+      }),
+    ).toEqual({ refund: 0, damage: 0, blockedAsSuicide: false });
   });
 });

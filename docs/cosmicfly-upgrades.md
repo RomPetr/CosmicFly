@@ -99,10 +99,11 @@
 - Синергия: Dart Rhythm
 - Риск: переполнение снарядами
 
-### 2. Twin Ember
+### Twin Ember / double pulse-beam (shop)
 
-- Категория: weapon
-- Параметр: `projectileCount = 2`, небольшой разнос
+- Категория: weapon (Base station shop, не карточка уровня)
+- Параметр: `projectileCount = 2`, боковой разнос дул
+- Цена: клик по иконке Emerald (20) или Ruby (5); при нехватке — `Not enough crystals`
 - Визуал: два болта из носа
 - Синергия: с рикошетом даёт хаос по краям
 - Риск: удваивает нагрузку пула

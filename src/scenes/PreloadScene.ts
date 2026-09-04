@@ -34,6 +34,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image(TextureKeys.AshChunkB, TexturePaths[TextureKeys.AshChunkB]);
     this.load.image(TextureKeys.EngineFlame, TexturePaths[TextureKeys.EngineFlame]);
     this.load.image(TextureKeys.SpaceStation, TexturePaths[TextureKeys.SpaceStation]);
+    this.load.image(TextureKeys.CrystalEmerald, TexturePaths[TextureKeys.CrystalEmerald]);
+    this.load.image(TextureKeys.CrystalRuby, TexturePaths[TextureKeys.CrystalRuby]);
+    this.load.image(TextureKeys.CrystalDiamond, TexturePaths[TextureKeys.CrystalDiamond]);
     this.load.spritesheet(TextureKeys.Explosion, TexturePaths[TextureKeys.Explosion], {
       frameWidth: ExplosionSheet.frameWidth,
       frameHeight: ExplosionSheet.frameHeight,
@@ -94,76 +97,8 @@ export class PreloadScene extends Phaser.Scene {
     this.createStarfieldTextures();
     this.createExplosionAnimation();
     this.createGiftAnimations();
-    this.createCrystalGemTexture();
     this.createShieldAuraTexture();
     this.scene.start(SceneKeys.Menu);
-  }
-
-  private createCrystalGemTexture(): void {
-    if (this.textures.exists(TextureKeys.CrystalGem)) {
-      return;
-    }
-
-    const size = 26;
-    const cx = size / 2;
-    const cy = size / 2;
-    const halfW = size * 0.32;
-    const halfH = size * 0.46;
-    const graphics = this.make.graphics({}, false);
-
-    const outline = 0x1a1f28;
-    const midBand = 0xffffff;
-    const lightBand = 0xffffff;
-    const highlight = 0xffffff;
-
-    graphics.fillStyle(outline, 1);
-    graphics.fillPoints(
-      [
-        { x: cx, y: cy - halfH },
-        { x: cx + halfW, y: cy },
-        { x: cx, y: cy + halfH },
-        { x: cx - halfW, y: cy },
-      ],
-      true,
-    );
-
-    const inner = 0.88;
-    const iw = halfW * inner;
-    const ih = halfH * inner;
-
-    graphics.fillStyle(midBand, 0.55);
-    graphics.fillPoints(
-      [
-        { x: cx, y: cy - ih },
-        { x: cx + iw, y: cy },
-        { x: cx, y: cy + ih },
-        { x: cx - iw, y: cy },
-      ],
-      true,
-    );
-
-    graphics.fillStyle(lightBand, 0.85);
-    graphics.fillPoints(
-      [
-        { x: cx, y: cy - ih },
-        { x: cx + iw, y: cy },
-        { x: cx, y: cy },
-      ],
-      true,
-    );
-
-    graphics.fillStyle(highlight, 1);
-    graphics.fillPoints(
-      [
-        { x: cx, y: cy - ih * 0.85 },
-        { x: cx + iw * 0.3, y: cy - ih * 0.15 },
-        { x: cx - iw * 0.3, y: cy - ih * 0.15 },
-      ],
-      true,
-    );
-
-    graphics.generateTexture(TextureKeys.CrystalGem, size, size);
-    graphics.destroy();
   }
 
   private createExplosionAnimation(): void {

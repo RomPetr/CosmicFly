@@ -1,8 +1,13 @@
 import Phaser from 'phaser';
-import { TextureKeys } from '../config/assetKeys';
+import { TextureKeys, type TextureKey } from '../config/assetKeys';
 
 const TAU = Math.PI * 2;
-const ICON_SCALE = 0.9;
+/** Former procedural gem was 26×26 at scale 0.9; +30% → 0.9 * 1.3. */
+export const crystalHudIconScale = 0.9 * 1.3;
+/** Base station crystal icons: ~1.5× HUD display scale. */
+export const crystalBaseIconScale = crystalHudIconScale * 1.5;
+/** Native size of the former procedural gem; real art is display-normalized to this. */
+export const CRYSTAL_ICON_BASE_PX = 26;
 const LABEL_GAP_PX = 8;
 const SHIMMER_ALPHA_MIN = 0.85;
 const SHIMMER_ALPHA_MAX = 1.0;
@@ -10,42 +15,48 @@ const SHIMMER_SCALE_MIN = 0.94;
 const SHIMMER_SCALE_MAX = 1.06;
 
 export type CrystalCounterStyle = {
-  readonly palette: readonly number[];
+  readonly textureKey: TextureKey;
   readonly labelColor: string;
   readonly angularSpeed: number;
 };
 
 export const emeraldCounterStyle: CrystalCounterStyle = {
-  palette: [0xf6fff8, 0x9ffbe4, 0x63dcff, 0x35d38a, 0x9ffbe4],
+  textureKey: TextureKeys.CrystalEmerald,
   labelColor: '#c8fbe8',
   angularSpeed: 1.4,
 };
 
 export const rubyCounterStyle: CrystalCounterStyle = {
-  palette: [0xfff2f4, 0xffb0c8, 0xff4d6a, 0xd6294a, 0xffb0c8],
+  textureKey: TextureKeys.CrystalRuby,
   labelColor: '#ffc8d1',
   angularSpeed: 1.1,
+};
+
+export const diamondCounterStyle: CrystalCounterStyle = {
+  textureKey: TextureKeys.CrystalDiamond,
+  labelColor: '#e8f4ff',
+  angularSpeed: 1.25,
 };
 
 export class CrystalCounter {
   private readonly icon: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
-  private readonly palette: readonly number[];
   private readonly angularSpeed: number;
+  private readonly baseDisplayPx: number;
   private phase: number;
 
   public constructor(scene: Phaser.Scene, style: CrystalCounterStyle) {
-    if (!scene.textures.exists(TextureKeys.CrystalGem)) {
-      throw new Error(`Texture "${TextureKeys.CrystalGem}" is not registered`);
+    if (!scene.textures.exists(style.textureKey)) {
+      throw new Error(`Texture "${style.textureKey}" is not registered`);
     }
 
-    this.palette = style.palette;
     this.angularSpeed = style.angularSpeed;
+    this.baseDisplayPx = CRYSTAL_ICON_BASE_PX * crystalHudIconScale;
     this.phase = Math.random() * TAU;
 
-    this.icon = scene.add.image(0, 0, TextureKeys.CrystalGem);
+    this.icon = scene.add.image(0, 0, style.textureKey);
     this.icon.setOrigin(1, 0.5);
-    this.icon.setScale(ICON_SCALE);
+    this.icon.setDisplaySize(this.baseDisplayPx, this.baseDisplayPx);
     this.icon.setDepth(1000);
     this.icon.setBlendMode(Phaser.BlendModes.NORMAL);
 
@@ -85,40 +96,16 @@ export class CrystalCounter {
     }
 
     const wave = 0.5 + 0.5 * Math.sin(this.phase);
-    const paletteIndex = wave * (this.palette.length - 1);
-    const lower = Math.floor(paletteIndex);
-    const upper = Math.min(lower + 1, this.palette.length - 1);
-    const t = paletteIndex - lower;
-    const colorLower = this.palette[lower] ?? this.palette[0]!;
-    const colorUpper = this.palette[upper] ?? colorLower;
-
-    const tint = lerpRgb(colorLower, colorUpper, t);
     const alpha = SHIMMER_ALPHA_MIN + (SHIMMER_ALPHA_MAX - SHIMMER_ALPHA_MIN) * wave;
-    const scale = ICON_SCALE * (SHIMMER_SCALE_MIN + (SHIMMER_SCALE_MAX - SHIMMER_SCALE_MIN) * wave);
+    const display =
+      this.baseDisplayPx * (SHIMMER_SCALE_MIN + (SHIMMER_SCALE_MAX - SHIMMER_SCALE_MIN) * wave);
 
-    this.icon.setTint(tint);
     this.icon.setAlpha(alpha);
-    this.icon.setScale(scale);
+    this.icon.setDisplaySize(display, display);
   }
 
   public destroy(): void {
     this.icon.destroy();
     this.label.destroy();
   }
-}
-
-function lerpRgb(a: number, b: number, t: number): number {
-  const clampT = Math.max(0, Math.min(1, t));
-  const ar = (a >> 16) & 0xff;
-  const ag = (a >> 8) & 0xff;
-  const ab = a & 0xff;
-  const br = (b >> 16) & 0xff;
-  const bg = (b >> 8) & 0xff;
-  const bb = b & 0xff;
-
-  const r = Math.round(ar + (br - ar) * clampT);
-  const g = Math.round(ag + (bg - ag) * clampT);
-  const bl = Math.round(ab + (bb - ab) * clampT);
-
-  return (r << 16) | (g << 8) | bl;
 }

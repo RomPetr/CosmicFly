@@ -380,10 +380,16 @@ export class Player {
     return this.facingAngle;
   }
 
-  public getMuzzlePosition(out: Phaser.Math.Vector2): Phaser.Math.Vector2 {
+  public getMuzzlePosition(
+    out: Phaser.Math.Vector2,
+    lateralOffset = 0,
+  ): Phaser.Math.Vector2 {
+    const forwardX = Math.cos(this.facingAngle);
+    const forwardY = Math.sin(this.facingAngle);
+    const forward = starterShip.muzzleOffsetPx;
     return out.set(
-      this.sprite.x + Math.cos(this.facingAngle) * starterShip.muzzleOffsetPx,
-      this.sprite.y + Math.sin(this.facingAngle) * starterShip.muzzleOffsetPx,
+      this.sprite.x + forwardX * forward - forwardY * lateralOffset,
+      this.sprite.y + forwardY * forward + forwardX * lateralOffset,
     );
   }
 

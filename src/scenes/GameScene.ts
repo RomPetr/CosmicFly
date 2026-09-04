@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { AimCursorCss, SceneKeys, SoundKeys } from '../config/assetKeys';
 import { bases, findBaseAtKm } from '../data/bases';
 import { formatStageCompleteLabel } from '../data/stageComplete';
-import { emeraldRepair, quoteEmeraldRepair } from '../data/emeraldRepair';
+import { emeraldRepair, quoteEmeraldRepair, quoteEmeraldSell } from '../data/emeraldRepair';
 import type { RamSoundKind } from '../data/ramming';
 import { starterShip } from '../data/ships';
 import { WeaponIds, type WeaponId } from '../data/weapons';
@@ -18,6 +18,8 @@ import { AudioManager } from '../managers/AudioManager';
 import { InputManager } from '../managers/InputManager';
 import { WalletManager } from '../managers/WalletManager';
 import type { BaseDefinition } from '../bases/BaseDefinition';
+import { EquipmentIds, findShopItem, quoteShopPurchase } from '../data/shopCatalog';
+import type { EquipmentId, ShopSpendChoice } from '../data/shopCatalog';
 import { gameProgress } from '../state/GameProgress';
 import { CollisionSystem } from '../systems/CollisionSystem';
 import { EnemyWeaponSystem } from '../systems/EnemyWeaponSystem';
@@ -30,6 +32,7 @@ import { StarfieldSystem } from '../systems/StarfieldSystem';
 import { WeaponSystem } from '../systems/WeaponSystem';
 import {
   CrystalCounter,
+  diamondCounterStyle,
   emeraldCounterStyle,
   rubyCounterStyle,
 } from '../ui/CrystalCounter';
@@ -67,6 +70,7 @@ export class GameScene extends Phaser.Scene {
   private intro!: IntroSequence;
   private stageComplete!: StageCompleteSequence;
   private hudText!: Phaser.GameObjects.Text;
+  private diamondCounter!: CrystalCounter;
   private emeraldCounter!: CrystalCounter;
   private rubyCounter!: CrystalCounter;
   private laserHeatBar!: LaserHeatBar;
@@ -81,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   private lastDistanceKm = 0;
   private dockedBase: BaseDefinition | null = null;
   private pendingBase: BaseDefinition | null = null;
+  private ownedEquipmentIds: string[] = [];
 
   public constructor() {
     super({ key: SceneKeys.Game });
@@ -113,8 +118,15 @@ export class GameScene extends Phaser.Scene {
     const startingSnapshot =
       this.startKm > 0
         ? gameProgress.getCheckpointSnapshot(this.startKm)
-        : { emeralds: 0, rubies: 0, health: starterShip.maxHealth };
+        : {
+            emeralds: 0,
+            rubies: 0,
+            diamonds: 0,
+            health: starterShip.maxHealth,
+            ownedEquipmentIds: [],
+          };
     this.wallet = new WalletManager(startingSnapshot);
+    this.ownedEquipmentIds = [...startingSnapshot.ownedEquipmentIds];
     this.starfieldSystem = new StarfieldSystem(this, this.startKm);
     this.player = new Player(this, width / 2, height / 2, this.inputManager);
     if (this.startKm > 0) {
@@ -123,6 +135,7 @@ export class GameScene extends Phaser.Scene {
     this.intro = new IntroSequence(this, this.audioManager);
     this.stageComplete = new StageCompleteSequence(this, this.audioManager);
     this.weaponSystem = new WeaponSystem(this, this.player, this.inputManager, this.audioManager);
+    this.applyOwnedEquipment();
     this.spawnSystem = new SpawnSystem(this, this.player);
     this.enemyWeaponSystem = new EnemyWeaponSystem(
       this,
@@ -182,6 +195,7 @@ export class GameScene extends Phaser.Scene {
 
     this.endFlight.on('pointerdown', this.goToGameOver, this);
 
+    this.diamondCounter = new CrystalCounter(this, diamondCounterStyle);
     this.emeraldCounter = new CrystalCounter(this, emeraldCounterStyle);
     this.rubyCounter = new CrystalCounter(this, rubyCounterStyle);
     this.laserHeatBar = new LaserHeatBar(this);
@@ -189,7 +203,10 @@ export class GameScene extends Phaser.Scene {
     this.baseView = new BaseStationView(this, {
       onRepairOne: () => this.buyRepair(emeraldRepair.packSmall),
       onRepairTen: () => this.buyRepair(emeraldRepair.packLarge),
+      onAdjustPlus: () => this.buyRepair(emeraldRepair.packSmall),
+      onAdjustMinus: () => this.sellHullForEmerald(),
       onNextStage: () => this.leaveBaseForNextStage(),
+      onBuyShopItem: (id, spend) => this.buyShopItem(id, spend),
     });
     this.syncCrystalCounters();
     this.input.keyboard?.on('keydown-ESC', this.goToGameOver, this);
@@ -276,8 +293,7 @@ export class GameScene extends Phaser.Scene {
     this.debrisBurst.update(delta);
     this.meteorDebrisBurst.update(delta);
     this.blinkTrail.update(delta);
-    this.emeraldCounter.update(delta);
-    this.rubyCounter.update(delta);
+    this.updateCrystalCounters(delta);
     this.syncHud();
   }
 
@@ -285,16 +301,14 @@ export class GameScene extends Phaser.Scene {
     this.inputManager.update();
     this.tryDebugFullHeal();
     this.starfieldSystem.update(delta, 0, 0);
-    this.emeraldCounter.update(delta);
-    this.rubyCounter.update(delta);
+    this.updateCrystalCounters(delta);
     this.syncHud();
   }
 
   private updateStageComplete(delta: number): void {
     this.stageComplete.update(delta);
     this.starfieldSystem.update(delta, 0, 0);
-    this.emeraldCounter.update(delta);
-    this.rubyCounter.update(delta);
+    this.updateCrystalCounters(delta);
     this.syncHud();
 
     if (!this.stageComplete.isFinished() || this.pendingBase === null) {
@@ -317,9 +331,14 @@ export class GameScene extends Phaser.Scene {
 
     // Scroll is frozen, so this only keeps the background stars twinkling.
     this.starfieldSystem.update(delta, 0, 0);
+    this.updateCrystalCounters(delta);
+    this.syncHud();
+  }
+
+  private updateCrystalCounters(delta: number): void {
+    this.diamondCounter.update(delta);
     this.emeraldCounter.update(delta);
     this.rubyCounter.update(delta);
-    this.syncHud();
   }
 
   private finishIntro(): void {
@@ -453,6 +472,80 @@ export class GameScene extends Phaser.Scene {
     this.syncHud();
   }
 
+  private sellHullForEmerald(): void {
+    if (this.dockedBase === null) {
+      return;
+    }
+
+    const quote = quoteEmeraldSell({
+      currentHealth: this.player.getHealth(),
+      maxHealth: starterShip.maxHealth,
+      requestedEmeralds: emeraldRepair.packSmall,
+    });
+
+    if (quote.blockedAsSuicide) {
+      this.baseView.showSuicideWarning();
+      return;
+    }
+
+    if (quote.refund <= 0 || quote.damage <= 0) {
+      return;
+    }
+
+    this.player.setHealth(this.player.getHealth() - quote.damage);
+    this.wallet.awardEmeralds(quote.refund);
+    this.persistDockSnapshot();
+    this.baseView.sync(this.getBaseViewState());
+    this.syncHud();
+  }
+
+  private buyShopItem(id: EquipmentId, spend: ShopSpendChoice): void {
+    if (this.dockedBase === null) {
+      return;
+    }
+
+    const item = findShopItem(id);
+    if (item === null) {
+      return;
+    }
+
+    const quote = quoteShopPurchase(
+      item,
+      this.wallet.getSnapshot(),
+      this.ownedEquipmentIds,
+      spend,
+    );
+    if (!quote.ok) {
+      if (quote.reason === 'unaffordable') {
+        this.baseView.showNotEnoughCrystalsWarning();
+      }
+      return;
+    }
+
+    const spent =
+      quote.spend === 'emeralds'
+        ? this.wallet.trySpendEmeralds(quote.amount)
+        : this.wallet.trySpendRubies(quote.amount);
+    if (!spent) {
+      this.baseView.showNotEnoughCrystalsWarning();
+      return;
+    }
+
+    if (!this.ownedEquipmentIds.includes(item.id)) {
+      this.ownedEquipmentIds.push(item.id);
+    }
+    this.applyOwnedEquipment();
+    this.persistDockSnapshot();
+    this.baseView.sync(this.getBaseViewState());
+    this.syncHud();
+  }
+
+  private applyOwnedEquipment(): void {
+    this.weaponSystem.setDoublePulseOwned(
+      this.ownedEquipmentIds.includes(EquipmentIds.DoublePulseBeam),
+    );
+  }
+
   private persistDockSnapshot(): void {
     if (this.dockedBase === null) {
       return;
@@ -461,6 +554,7 @@ export class GameScene extends Phaser.Scene {
     gameProgress.recordCheckpoint(this.dockedBase.unlockAtKm, {
       ...this.wallet.getSnapshot(),
       health: this.player.getHealth(),
+      ownedEquipmentIds: [...this.ownedEquipmentIds],
     });
   }
 
@@ -470,6 +564,8 @@ export class GameScene extends Phaser.Scene {
       currentHealth: this.player.getHealth(),
       maxHealth: starterShip.maxHealth,
     };
+    const canRepairOne =
+      quoteEmeraldRepair({ ...request, requestedEmeralds: emeraldRepair.packSmall }).spend > 0;
 
     return {
       stageCompleteLabel: this.dockedBase
@@ -477,27 +573,29 @@ export class GameScene extends Phaser.Scene {
         : '',
       emeralds: this.wallet.getEmeralds(),
       rubies: this.wallet.getRubies(),
+      diamonds: this.wallet.getDiamonds(),
       healthPercent: this.player.getHealthPercent(),
-      canRepairOne:
-        quoteEmeraldRepair({ ...request, requestedEmeralds: emeraldRepair.packSmall }).spend > 0,
+      canRepairOne,
       canRepairTen:
         quoteEmeraldRepair({ ...request, requestedEmeralds: emeraldRepair.packLarge }).spend > 0,
+      canAdjustPlus: canRepairOne,
+      ownedEquipmentIds: this.ownedEquipmentIds,
     };
   }
 
   private syncCrystalCounters(): void {
+    const rowY = HUD_TOP_ROW_Y + this.endFlight.height + HUD_COUNTER_SPACING_PX;
+
     this.rubyCounter.setValue(this.wallet.getRubies());
-    this.rubyCounter.setPosition(
-      this.scale.width - HUD_RIGHT_MARGIN_PX,
-      HUD_TOP_ROW_Y + this.endFlight.height + HUD_COUNTER_SPACING_PX,
-    );
+    this.rubyCounter.setPosition(this.scale.width - HUD_RIGHT_MARGIN_PX, rowY);
 
     const rubyLeft = this.rubyCounter.getIconLeftX();
     this.emeraldCounter.setValue(this.wallet.getEmeralds());
-    this.emeraldCounter.setPosition(
-      rubyLeft - HUD_COUNTER_SPACING_PX,
-      HUD_TOP_ROW_Y + this.endFlight.height + HUD_COUNTER_SPACING_PX,
-    );
+    this.emeraldCounter.setPosition(rubyLeft - HUD_COUNTER_SPACING_PX, rowY);
+
+    const emeraldLeft = this.emeraldCounter.getIconLeftX();
+    this.diamondCounter.setValue(this.wallet.getDiamonds());
+    this.diamondCounter.setPosition(emeraldLeft - HUD_COUNTER_SPACING_PX, rowY);
   }
 
   private handleEnemyKilled = (enemy: Enemy): void => {
